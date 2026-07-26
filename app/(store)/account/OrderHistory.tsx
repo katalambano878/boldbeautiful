@@ -42,7 +42,9 @@ export default function OrderHistory() {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
-        if (session.user.email) setUserEmail(session.user.email);
+        if (typeof session.user.email === 'string' && session.user.email) {
+          setUserEmail(session.user.email);
+        }
 
         const { data, error } = await supabase
           .from('orders')

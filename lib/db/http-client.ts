@@ -6,13 +6,21 @@
 type Row = Record<string, unknown>;
 type AuthChangeCallback = (event: string, session: Session | null) => void;
 
+export interface AuthUser {
+  id: string;
+  email: string | null;
+  phone?: string | null;
+  app_metadata?: Record<string, unknown>;
+  user_metadata?: Record<string, unknown>;
+}
+
 export interface Session {
   access_token: string;
   refresh_token: string;
   expires_in: number;
   expires_at?: number;
   token_type: string;
-  user: Record<string, unknown>;
+  user: AuthUser;
 }
 
 interface QueryResult<T = unknown> {
