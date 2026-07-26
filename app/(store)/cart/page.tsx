@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
+import { money } from '@/lib/format-money';
 import CartCountdown from '@/components/CartCountdown';
 import AdvancedCouponSystem from '@/components/AdvancedCouponSystem';
 import { useCart } from '@/context/CartContext';
@@ -88,7 +89,7 @@ export default function CartPage() {
                     <div className="flex items-center justify-between mb-6">
                       <h2 className="text-2xl font-bold text-gray-900">Cart Items ({cartItems.length})</h2>
                       {savings > 0 && (
-                        <span className="text-gray-900 font-semibold">You save GH₵{savings.toFixed(2)}</span>
+                        <span className="text-gray-900 font-semibold">You save GH₵{money(savings)}</span>
                       )}
                     </div>
 
@@ -120,7 +121,7 @@ export default function CartPage() {
 
                             <div className="flex items-center justify-between flex-wrap gap-4">
                               <div className="flex items-baseline space-x-3">
-                                <span className="text-xl font-bold text-gray-900">GH₵{item.price.toFixed(2)}</span>
+                                <span className="text-xl font-bold text-gray-900">GH₵{money(item.price)}</span>
                               </div>
 
                               <div className="flex items-center space-x-4">
@@ -187,7 +188,7 @@ export default function CartPage() {
                             </div>
                             <div className="flex-1">
                               <p className="font-semibold text-gray-900 mb-1">{item.name}</p>
-                              <p className="text-lg font-bold text-gray-900 mb-2">GH₵{item.price.toFixed(2)}</p>
+                              <p className="text-lg font-bold text-gray-900 mb-2">GH₵{money(item.price)}</p>
                               {/* Move to cart disabled for now */}
                             </div>
                           </div>
@@ -204,7 +205,7 @@ export default function CartPage() {
                     <div className="space-y-4 mb-6">
                       <div className="flex justify-between text-gray-700">
                         <span>Subtotal</span>
-                        <span className="font-semibold">GH₵{subtotal.toFixed(2)}</span>
+                        <span className="font-semibold">GH₵{money(subtotal)}</span>
                       </div>
 
                       {appliedCoupon && (
@@ -212,13 +213,13 @@ export default function CartPage() {
                           <div className="flex items-center space-x-2">
                             <span>Coupon ({appliedCoupon.code})</span>
                           </div>
-                          <span className="font-semibold">-GH₵{couponDiscount.toFixed(2)}</span>
+                          <span className="font-semibold">-GH₵{money(couponDiscount)}</span>
                         </div>
                       )}
 
                       <div className="flex justify-between text-gray-700">
                         <span>Shipping</span>
-                        <span className="font-semibold">{shipping === 0 ? 'FREE' : `GH₵${shipping.toFixed(2)}`}</span>
+                        <span className="font-semibold">{shipping === 0 ? 'FREE' : `GH₵${money(shipping)}`}</span>
                       </div>
 
                       {shipping > 0 && (
@@ -231,7 +232,7 @@ export default function CartPage() {
                     <div className="border-t border-gray-200 pt-4 mb-6">
                       <div className="flex justify-between text-xl font-bold text-gray-900">
                         <span>Total</span>
-                        <span>GH₵{total.toFixed(2)}</span>
+                        <span>GH₵{money(total)}</span>
                       </div>
                     </div>
 

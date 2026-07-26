@@ -1,10 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
+import { createSupabaseHttpClient } from './db/http-client';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3004');
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'local-anon-key';
 
-if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Missing Supabase environment variables');
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  console.warn(
+    '[Supabase] NEXT_PUBLIC_SUPABASE_URL not set; using same-origin shim base for HTTP client.'
+  );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createSupabaseHttpClient(supabaseUrl, supabaseKey);

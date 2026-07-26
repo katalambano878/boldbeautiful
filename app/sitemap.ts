@@ -30,13 +30,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   let productPages: MetadataRoute.Sitemap = [];
   let categoryPages: MetadataRoute.Sitemap = [];
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (supabaseUrl && supabaseKey) {
-    try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(supabaseUrl, supabaseKey);
+  try {
+    const { isPlainPostgres } = await import('@/lib/db/mode');
+    if (isPlainPostgres()) {
+      const { createClient } = await import('@/lib/db/supabase-compat');
+      const supabase = createClient();
 
       const [productsRes, categoriesRes] = await Promise.allSettled([
         supabase.from('products').select('slug, updated_at').eq('status', 'active'),
@@ -60,9 +58,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
           priority: 0.75,
         }));
       }
-    } catch (error) {
-      console.error('Sitemap: Supabase fetch failed, returning static pages only:', error);
     }
+  } catch (error) {
+    console.error('Sitemap: database fetch failed, returning static pages only:', error);
   }
 
   return [...staticPages, ...productPages, ...categoryPages];

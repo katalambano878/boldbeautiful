@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 const RATE_LIMIT_WINDOW = 60_000;
 const MAX_REQUESTS = 10;
@@ -42,7 +39,7 @@ export async function POST(request: Request) {
     const sanitizedOrderNumber = order_number.trim().substring(0, 50);
     const sanitizedEmail = email.trim().toLowerCase().substring(0, 254);
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabase = supabaseAdmin;
 
     const { data: order, error } = await supabase
       .from('orders')

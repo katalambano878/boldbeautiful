@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { useState, useEffect, Suspense, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { money } from '@/lib/format-money';
 
 function OrderTrackingContent() {
   const searchParams = useSearchParams();
@@ -325,7 +326,7 @@ function OrderTrackingContent() {
                 </div>
                 <div>
                   <p className="text-sm text-gray-600">Total</p>
-                  <p className="font-semibold text-gray-900">GH₵ {Number(order.total).toFixed(2)}</p>
+                  <p className="font-semibold text-gray-900">GH₵ {money(order.total)}</p>
                 </div>
               </div>
             </div>
@@ -415,7 +416,7 @@ function OrderTrackingContent() {
                     <p className="text-xs text-gray-500">{item.variant_name}</p>
                   )}
                 </div>
-                <p className="font-bold text-gray-900">GH₵ {Number(item.unit_price).toFixed(2)}</p>
+                <p className="font-bold text-gray-900">GH₵ {money(item.unit_price)}</p>
               </div>
             ))}
           </div>

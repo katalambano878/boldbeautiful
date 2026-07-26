@@ -11,6 +11,7 @@ import { StructuredData, generateProductSchema, generateBreadcrumbSchema } from 
 import { notFound } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { usePageTitle } from '@/hooks/usePageTitle';
+import { money } from '@/lib/format-money';
 
 // Map common color names to hex values for the swatch preview
 function colorNameToHex(name: string): string {
@@ -426,13 +427,13 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
                   <div className="flex items-baseline space-x-3">
                     {hasVariants && !selectedVariant ? (
                       <span className="text-2xl font-bold text-gray-900">
-                        From GH₵{minVariantPrice.toFixed(2)}
+                        From GH₵{money(minVariantPrice)}
                       </span>
                     ) : (
-                      <span className="text-2xl font-bold text-gray-900">GH₵{activePrice.toFixed(2)}</span>
+                      <span className="text-2xl font-bold text-gray-900">GH₵{money(activePrice)}</span>
                     )}
                     {product.compare_at_price && product.compare_at_price > activePrice && (
-                      <span className="text-lg text-gray-400 line-through">GH₵{product.compare_at_price.toFixed(2)}</span>
+                      <span className="text-lg text-gray-400 line-through">GH₵{money(product.compare_at_price)}</span>
                     )}
                   </div>
                   <div className="flex items-center">

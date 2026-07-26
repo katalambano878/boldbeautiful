@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { money } from '@/lib/format-money';
 
 interface FilterOptions {
   priceRange: [number, number];
@@ -156,7 +157,7 @@ export default function ProductFilters({ onFilterChange }: ProductFiltersProps) 
                 className="w-full accent-gray-900"
               />
               <p className="text-sm text-gray-600">
-                GH₵{priceRange[0]} - GH₵{priceRange[1]}
+                GH₵{money(priceRange[0])} - GH₵{money(priceRange[1])}
               </p>
             </div>
           </div>

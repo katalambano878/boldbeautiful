@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
+import { money } from '@/lib/format-money';
 
 interface Product {
   id: string;
@@ -138,9 +139,9 @@ export default function SmartRecommendations({ productId, type, title }: SmartRe
                   <span className="text-xs text-gray-500">({product.reviews})</span>
                 </div>
                 <div className="flex items-baseline space-x-2">
-                  <span className="text-lg font-bold text-gray-900">GH₵{product.price}</span>
+                  <span className="text-lg font-bold text-gray-900">GH₵{money(product.price)}</span>
                   {product.originalPrice && (
-                    <span className="text-sm text-gray-400 line-through">GH₵{product.originalPrice}</span>
+                    <span className="text-sm text-gray-400 line-through">GH₵{money(product.originalPrice)}</span>
                   )}
                 </div>
               </div>

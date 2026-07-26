@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { money } from '@/lib/format-money';
 
 export default function ProductEditor({ productId }: { productId: string }) {
   const [productName, setProductName] = useState('Premium Leather Crossbody Bag');
@@ -205,7 +206,7 @@ export default function ProductEditor({ productId }: { productId: string }) {
               <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-blue-900 font-semibold mb-1">Discount Calculation</p>
                 <p className="text-blue-800">
-                  Savings: GH₵ {(parseFloat(comparePrice) - parseFloat(price)).toFixed(2)} 
+                  Savings: GH₵ {money(parseFloat(comparePrice) - parseFloat(price))} 
                   <span className="ml-2">
                     ({(((parseFloat(comparePrice) - parseFloat(price)) / parseFloat(comparePrice)) * 100).toFixed(0)}% off)
                   </span>

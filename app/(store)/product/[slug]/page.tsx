@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/db/supabase-compat';
 import ProductDetailClient from './ProductDetailClient';
 
 const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.boldnbeautiful.store';
@@ -7,10 +7,7 @@ const SITE_NAME = 'Bold & Beautiful';
 
 async function getProduct(slug: string) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient();
     const { data } = await supabase
       .from('products')
       .select('name, description, images, price, category_id, metadata')
