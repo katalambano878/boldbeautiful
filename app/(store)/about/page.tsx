@@ -190,7 +190,7 @@ export default function AboutPage() {
       <section className="py-24 bg-black relative overflow-hidden flex items-center justify-center">
         <div className="absolute inset-0 opacity-30">
           <Image
-            src="https://images.unsplash.com/photo-1562322140-8baeececf3df?q=80&w=2669&auto=format&fit=crop"
+            src="/hero-about-cta.jpeg"
             alt="Background"
             fill
             className="object-cover grayscale"

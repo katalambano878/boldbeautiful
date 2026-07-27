@@ -46,7 +46,7 @@ export default async function CategoriesPage() {
       <div className="bg-gray-900 text-white pb-32 lg:pb-48 pt-24 lg:pt-32 relative overflow-hidden">
         <div className="absolute inset-0 opacity-35">
            <Image 
-            src="https://images.unsplash.com/photo-1560869713-7d0a29430803?q=80&w=2626&auto=format&fit=crop" 
+            src="/hero-categories.jpeg"
             alt="Categories Background" 
             fill
             className="object-cover"
