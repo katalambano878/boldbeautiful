@@ -7,6 +7,7 @@ import ProductCard, { type ColorVariant } from '@/components/ProductCard';
 import { getColorHex } from '@/components/ProductCard';
 import { supabase } from '@/lib/supabase';
 import { cachedQuery } from '@/lib/query-cache';
+import { asNumber } from '@/lib/format-money';
 import PageHero from '@/components/PageHero';
 import AnimatedSection from '@/components/AnimatedSection';
 
@@ -73,30 +74,29 @@ function ShopContent() {
               .from('products')
               .select(`
                 *,
-                categories!inner(name, slug),
-                product_images!product_id(url, position),
+                categories(name, slug),
+                product_images(url, position),
                 product_variants(id, name, price, quantity, option1, option2, image_url)
               `, { count: 'exact' })
-              .order('position', { foreignTable: 'product_images', ascending: true });
+              .eq('status', 'active');
 
             // Search
             if (search) {
               query = query.ilike('name', `%${search}%`);
             }
 
-            // Category Filter with Subcategories
+            // Category Filter with Subcategories (filter by category_id — nested
+            // categories.slug filters are not supported by the Postgres shim)
             if (selectedCategory !== 'all') {
               const categoryObj = categories.find(c => c.slug === selectedCategory);
 
               if (categoryObj) {
-                const targetSlugs = [selectedCategory];
-                const childSlugs = categories
+                const targetIds = [categoryObj.id];
+                const childIds = categories
                   .filter(c => c.parent_id === categoryObj.id)
-                  .map(c => c.slug);
-                targetSlugs.push(...childSlugs);
-                query = query.in('categories.slug', targetSlugs);
-              } else {
-                query = query.eq('categories.slug', selectedCategory);
+                  .map(c => c.id);
+                targetIds.push(...childIds);
+                query = query.in('category_id', targetIds);
               }
             }
 
@@ -146,9 +146,13 @@ function ShopContent() {
           const formattedProducts = data.map((p: any) => {
             const variants = p.product_variants || [];
             const hasVariants = variants.length > 0;
-            const minVariantPrice = hasVariants ? Math.min(...variants.map((v: any) => v.price || p.price)) : undefined;
-            const totalVariantStock = hasVariants ? variants.reduce((sum: number, v: any) => sum + (v.quantity || 0), 0) : 0;
-            const effectiveStock = hasVariants ? totalVariantStock : p.quantity;
+            const minVariantPrice = hasVariants
+              ? Math.min(...variants.map((v: any) => asNumber(v.price, asNumber(p.price))))
+              : undefined;
+            const totalVariantStock = hasVariants
+              ? variants.reduce((sum: number, v: any) => sum + asNumber(v.quantity), 0)
+              : 0;
+            const effectiveStock = hasVariants ? totalVariantStock : asNumber(p.quantity);
             const colorVariants: ColorVariant[] = [];
             const seenColors = new Set<string>();
             // Pull colors from metadata.product_options.color (new system)
@@ -160,9 +164,14 @@ function ShopContent() {
                 colorVariants.push({ name: cName.trim(), hex: cHex });
               }
             }
-            // Fallback: legacy colors from variant option2
+            // Fallback: color is usually option1 (Color/Size products) or option2 (legacy)
+            const optionNames = (p.metadata?.option_names || []) as string[];
+            const colorOptIdx = optionNames.findIndex((n) => /color/i.test(String(n)));
             for (const v of variants) {
-              const colorName = v.option2;
+              const colorName =
+                colorOptIdx === 1 ? v.option2 :
+                colorOptIdx === 2 ? v.option3 :
+                (v.option1 || v.option2);
               if (colorName && !seenColors.has(colorName.toLowerCase().trim())) {
                 const hex = getColorHex(colorName);
                 if (hex) {
@@ -172,16 +181,18 @@ function ShopContent() {
               }
             }
 
+            const price = asNumber(p.price);
+            const compareAt = asNumber(p.compare_at_price, NaN);
             return {
               id: p.id,           // Product UUID for cart/orders
               slug: p.slug,       // Slug for navigation
               name: p.name,
-              price: p.price,
-              originalPrice: p.compare_at_price,
+              price,
+              originalPrice: Number.isFinite(compareAt) ? compareAt : undefined,
               image: p.product_images?.[0]?.url || 'https://via.placeholder.com/800x800?text=No+Image',
-              rating: p.rating_avg || 0,
+              rating: asNumber(p.rating_avg),
               reviewCount: 0, // Need to implement reviews relation
-              badge: p.compare_at_price > p.price ? 'Sale' : undefined, // Simple badge logic
+              badge: Number.isFinite(compareAt) && compareAt > price ? 'Sale' : undefined,
               inStock: effectiveStock > 0,
               maxStock: effectiveStock || 50,
               moq: p.moq || 1,
