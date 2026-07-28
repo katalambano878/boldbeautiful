@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase';
+import { asNumber, money } from '@/lib/format-money';
 
 interface Product {
     id: string;
@@ -67,22 +68,25 @@ export default function POSPage() {
     const fetchData = async () => {
         try {
             setLoading(true);
-            // Fetch Products
-            const { data: prodData } = await supabase
+            // Fetch active products only
+            const { data: prodData, error: prodError } = await supabase
                 .from('products')
                 .select(`
-          id, name, price, quantity, sku,
+          id, name, price, quantity, sku, status,
           categories(name),
           product_images(url)
         `)
+                .eq('status', 'active')
                 .order('name');
+
+            if (prodError) throw prodError;
 
             if (prodData) {
                 const formatted: Product[] = prodData.map((p: any) => ({
                     id: p.id,
                     name: p.name,
-                    price: p.price,
-                    quantity: p.quantity,
+                    price: asNumber(p.price),
+                    quantity: asNumber(p.quantity),
                     category: p.categories?.name || 'Uncategorized',
                     image: p.product_images?.[0]?.url || 'https://via.placeholder.com/150',
                     sku: p.sku
@@ -95,13 +99,17 @@ export default function POSPage() {
             }
 
             // Fetch Customers from customers table (not profiles)
-            const { data: custData } = await supabase
+            const { data: custData, error: custError } = await supabase
                 .from('customers')
                 .select('id, full_name, email, phone')
                 .order('full_name')
                 .limit(200);
 
-            if (custData) setCustomers(custData);
+            if (custError) {
+                console.error('Error fetching customers:', custError);
+            } else if (custData) {
+                setCustomers(custData);
+            }
 
         } catch (error) {
             console.error('Error fetching POS data:', error);
@@ -112,16 +120,18 @@ export default function POSPage() {
 
     // Cart Functions
     const addToCart = (product: Product) => {
+        if (asNumber(product.quantity) <= 0) return;
         setCart(prev => {
             const existing = prev.find(item => item.id === product.id);
             if (existing) {
+                if (existing.cartQuantity >= asNumber(product.quantity)) return prev;
                 return prev.map(item =>
                     item.id === product.id
                         ? { ...item, cartQuantity: item.cartQuantity + 1 }
                         : item
                 );
             }
-            return [...prev, { ...product, cartQuantity: 1 }];
+            return [...prev, { ...product, price: asNumber(product.price), cartQuantity: 1 }];
         });
     };
 
@@ -132,11 +142,12 @@ export default function POSPage() {
     const updateQuantity = (productId: string, delta: number) => {
         setCart(prev => prev.map(item => {
             if (item.id === productId) {
-                const newQty = item.cartQuantity + delta;
+                const max = asNumber(item.quantity);
+                const newQty = Math.min(max, item.cartQuantity + delta);
                 return newQty > 0 ? { ...item, cartQuantity: newQty } : item;
             }
             return item;
-        }));
+        }).filter(item => item.cartQuantity > 0));
     };
 
     const emptyCart = () => setCart([]);
@@ -162,7 +173,7 @@ export default function POSPage() {
         );
     }, [customers, customerSearch]);
 
-    const cartTotal = cart.reduce((sum, item) => sum + (item.price * item.cartQuantity), 0);
+    const cartTotal = cart.reduce((sum, item) => sum + (asNumber(item.price) * item.cartQuantity), 0);
     const tax = cartTotal * 0.0;
     const grandTotal = cartTotal + tax;
     const changeDue = amountTendered ? (parseFloat(amountTendered) - grandTotal) : 0;
@@ -292,8 +303,8 @@ export default function POSPage() {
                 product_id: item.id,
                 product_name: item.name,
                 quantity: item.cartQuantity,
-                unit_price: item.price,
-                total_price: item.price * item.cartQuantity,
+                unit_price: asNumber(item.price),
+                total_price: asNumber(item.price) * item.cartQuantity,
                 metadata: { image: item.image, pos_sale: true }
             }));
 
@@ -312,39 +323,48 @@ export default function POSPage() {
                     : null;
 
             if (upsertEmail) {
-                try {
-                    await supabase.rpc('upsert_customer_from_order', {
-                        p_email: upsertEmail,
-                        p_phone: customerPhone || null,
-                        p_full_name: customerName || null,
-                        p_first_name: addressData.firstName || null,
-                        p_last_name: addressData.lastName || null,
-                        p_user_id: null,
-                        p_address: addressData
-                    });
-                    // Refresh customer list silently
+                const { error: upsertError } = await supabase.rpc('upsert_customer_from_order', {
+                    p_email: upsertEmail,
+                    p_phone: customerPhone || null,
+                    p_full_name: customerName || null,
+                    p_first_name: addressData.firstName || null,
+                    p_last_name: addressData.lastName || null,
+                    p_user_id: null,
+                    p_address: addressData
+                });
+                if (upsertError) {
+                    console.error('Customer upsert error (non-fatal):', upsertError);
+                } else {
                     supabase.from('customers').select('id, full_name, email, phone').order('full_name').limit(200)
                         .then(({ data }) => { if (data) setCustomers(data); });
-                } catch (custErr) {
-                    console.error('Customer upsert error (non-fatal):', custErr);
                 }
             }
 
             // 4. If Cash or Card — mark as paid, reduce stock
             if (isCashOrCard) {
-                // Call mark_order_paid to reduce stock (uses order_number as order_ref)
-                try {
-                    await supabase.rpc('mark_order_paid', {
-                        order_ref: orderNumber,
-                        moolre_ref: `POS-${paymentMethod.toUpperCase()}-${Date.now()}`
+                const { error: stockError } = await supabase.rpc('mark_order_paid', {
+                    order_ref: orderNumber,
+                    moolre_ref: `POS-${paymentMethod.toUpperCase()}-${Date.now()}`
+                });
+                if (stockError) {
+                    throw new Error(stockError.message || 'Failed to mark order paid / reduce stock');
+                }
+
+                if (upsertEmail) {
+                    const { error: statsError } = await supabase.rpc('update_customer_stats', {
+                        p_customer_email: upsertEmail,
+                        p_order_total: grandTotal
                     });
-                } catch (stockErr) {
-                    console.error('Stock reduction error (non-fatal):', stockErr);
+                    if (statsError) {
+                        console.error('Customer stats update error (non-fatal):', statsError);
+                    }
                 }
 
                 // Success — show completed
                 setCompletedOrder({ id: order.id, orderNumber, total: grandTotal, items: cart });
                 setCart([]);
+                // Refresh stock quantities after sale
+                fetchData();
 
                 // Send notification
                 if (customerEmail && customerEmail !== 'pos-walkin@store.local') {
@@ -475,7 +495,11 @@ export default function POSPage() {
                                 <div
                                     key={product.id}
                                     onClick={() => addToCart(product)}
-                                    className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow cursor-pointer overflow-hidden border border-gray-100 group flex flex-col h-full"
+                                    className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 group flex flex-col h-full ${
+                                        asNumber(product.quantity) <= 0
+                                            ? 'opacity-50 cursor-not-allowed'
+                                            : 'cursor-pointer'
+                                    }`}
                                 >
                                     <div className="aspect-square relative bg-gray-50 shrink-0">
                                         <img
@@ -490,7 +514,7 @@ export default function POSPage() {
                                     <div className="p-3 flex flex-col flex-1">
                                         <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-auto">{product.name}</h3>
                                         <div className="flex items-center justify-between mt-2 pt-2">
-                                            <span className="text-gray-900 font-bold">GH₵{product.price.toFixed(2)}</span>
+                                            <span className="text-gray-900 font-bold">GH₵{money(product.price)}</span>
                                             <button className="w-8 h-8 rounded-full bg-gray-50 text-gray-900 flex items-center justify-center group-hover:bg-gray-900 group-hover:text-white transition-colors">
                                                 <i className="ri-add-line"></i>
                                             </button>
@@ -514,7 +538,7 @@ export default function POSPage() {
                                 Items
                             </span>
                             <span>View Cart</span>
-                            <span>GH₵{grandTotal.toFixed(2)}</span>
+                            <span>GH₵{money(grandTotal)}</span>
                         </button>
                     </div>
                 )}
@@ -570,7 +594,7 @@ export default function POSPage() {
                                                 <i className="ri-add-line text-xs"></i>
                                             </button>
                                         </div>
-                                        <p className="text-sm font-bold text-gray-900">GH₵{(item.price * item.cartQuantity).toFixed(2)}</p>
+                                        <p className="text-sm font-bold text-gray-900">GH₵{money(asNumber(item.price) * item.cartQuantity)}</p>
                                     </div>
                                 </div>
                             </div>
@@ -583,7 +607,7 @@ export default function POSPage() {
                     <div className="space-y-1 text-sm">
                         <div className="flex justify-between text-gray-600">
                             <span>Subtotal</span>
-                            <span>GH₵{cartTotal.toFixed(2)}</span>
+                            <span>GH₵{money(cartTotal)}</span>
                         </div>
                         <div className="flex justify-between text-gray-600">
                             <span>Tax (0%)</span>
@@ -591,7 +615,7 @@ export default function POSPage() {
                         </div>
                         <div className="flex justify-between text-xl font-bold text-gray-900 pt-2 border-t border-gray-200 mt-2">
                             <span>Total</span>
-                            <span>GH₵{grandTotal.toFixed(2)}</span>
+                            <span>GH₵{money(grandTotal)}</span>
                         </div>
                     </div>
 
@@ -608,7 +632,7 @@ export default function POSPage() {
                             disabled={cart.length === 0}
                             className="px-4 py-3 bg-gray-700 text-white rounded-lg hover:bg-gray-900 font-bold text-sm shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Charge GH₵{grandTotal.toFixed(2)}
+                            Charge GH₵{money(grandTotal)}
                         </button>
                     </div>
                 </div>
@@ -633,7 +657,7 @@ export default function POSPage() {
                                     {!completedOrder.paymentPending && paymentMethod === 'cash' && changeDue > 0 && (
                                         <div className="mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
                                             <p className="text-sm text-gray-900">Change Due</p>
-                                            <p className="text-2xl font-bold text-gray-800">GH₵{changeDue.toFixed(2)}</p>
+                                            <p className="text-2xl font-bold text-gray-800">GH₵{money(changeDue)}</p>
                                         </div>
                                     )}
 
@@ -699,7 +723,7 @@ export default function POSPage() {
                                     {/* Total Display */}
                                     <div className="text-center py-4 bg-gray-50 rounded-xl border border-gray-100">
                                         <p className="text-sm text-gray-800 uppercase tracking-wide font-semibold">Amount to Pay</p>
-                                        <p className="text-4xl font-extrabold text-gray-900 mt-1">GH₵{grandTotal.toFixed(2)}</p>
+                                        <p className="text-4xl font-extrabold text-gray-900 mt-1">GH₵{money(grandTotal)}</p>
                                     </div>
 
                                     {/* Customer Select */}
@@ -900,7 +924,7 @@ export default function POSPage() {
                                                 />
                                             </div>
                                             {changeDue > 0 && (
-                                                <p className="text-right text-gray-700 font-bold mt-2">Change: GH₵{changeDue.toFixed(2)}</p>
+                                                <p className="text-right text-gray-700 font-bold mt-2">Change: GH₵{money(changeDue)}</p>
                                             )}
                                             {changeDue < 0 && amountTendered && (
                                                 <p className="text-right text-red-500 font-medium mt-2">Insufficient amount</p>
@@ -913,7 +937,7 @@ export default function POSPage() {
                                                         onClick={() => setAmountTendered(amount.toString())}
                                                         className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium text-gray-700 transition-colors"
                                                     >
-                                                        GH₵{amount.toFixed(2)}
+                                                        GH₵{money(amount)}
                                                     </button>
                                                 ))}
                                             </div>

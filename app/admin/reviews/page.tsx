@@ -22,28 +22,30 @@ export default function AdminReviewsPage() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        // Graceful fallback if table doesn't exist or permissions fail
         console.warn('Error fetching reviews:', error);
-        // setReviews([]); // Keep empty
       } else if (data) {
-        const formatted = data.map((r: any) => ({
-          id: r.id,
-          customer: {
-            name: r.profiles?.full_name || 'Anonymous',
-            email: r.profiles?.email || 'N/A',
-            avatar: getInitials(r.profiles?.full_name || r.profiles?.email)
-          },
-          product: {
-            name: r.products?.name || 'Unknown Product',
-            image: r.products?.product_images?.[0]?.url || 'https://via.placeholder.com/150'
-          },
-          rating: r.rating,
-          title: r.title,
-          comment: r.content,
-          date: new Date(r.created_at).toLocaleDateString(),
-          status: r.status || 'Pending',
-          helpful: r.helpful || 0
-        }));
+        const formatted = data.map((r: any) => {
+          const rawStatus = String(r.status || 'pending').toLowerCase();
+          const statusLabel = rawStatus.charAt(0).toUpperCase() + rawStatus.slice(1);
+          return {
+            id: r.id,
+            customer: {
+              name: r.profiles?.full_name || 'Anonymous',
+              email: r.profiles?.email || 'N/A',
+              avatar: getInitials(r.profiles?.full_name || r.profiles?.email)
+            },
+            product: {
+              name: r.products?.name || 'Unknown Product',
+              image: r.products?.product_images?.[0]?.url || 'https://via.placeholder.com/150'
+            },
+            rating: r.rating,
+            title: r.title,
+            comment: r.content,
+            date: new Date(r.created_at).toLocaleDateString(),
+            status: statusLabel,
+            helpful: r.helpful_votes || 0
+          };
+        });
         setReviews(formatted);
       }
     } catch (error) {
@@ -105,8 +107,8 @@ export default function AdminReviewsPage() {
     if (selectedReviews.length === 0) return;
     try {
       let newStatus = '';
-      if (action === 'Approve') newStatus = 'Approved';
-      if (action === 'Reject') newStatus = 'Rejected';
+      if (action === 'Approve') newStatus = 'approved';
+      if (action === 'Reject') newStatus = 'rejected';
 
       if (newStatus) {
         const { error } = await supabase

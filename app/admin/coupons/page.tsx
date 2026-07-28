@@ -25,14 +25,14 @@ export default function AdminCouponsPage() {
         setCoupons(data.map((c: any) => ({
           id: c.id,
           code: c.code,
-          type: c.discount_type || 'Percentage', // Adjust key if needed (e.g. type)
-          value: c.discount_value || c.value || 0,
-          minPurchase: c.min_purchase_amount || 0,
+          type: c.type === 'fixed' ? 'Fixed' : c.type === 'percentage' ? 'Percentage' : (c.type || 'Percentage'),
+          value: c.value ?? 0,
+          minPurchase: c.minimum_purchase ?? 0,
           usageLimit: c.usage_limit || null,
-          usedCount: c.times_used || 0,
+          usedCount: c.usage_count || 0,
           startDate: c.start_date ? new Date(c.start_date).toLocaleDateString() : 'N/A',
           endDate: c.end_date ? new Date(c.end_date).toLocaleDateString() : null,
-          status: isCouponActive(c) ? 'Active' : 'Expired' // Derive status
+          status: isCouponActive(c) ? 'Active' : (c.is_active ? 'Scheduled' : 'Disabled')
         })));
       }
     } catch (err) {

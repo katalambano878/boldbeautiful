@@ -46,8 +46,28 @@ export default function ProductSalesStats({ isOpen, onClose }: { isOpen: boolean
         // 'all' leaves startDate as null
 
         try {
-            // We fetch order_items and filter by the parent order's created_at
-            let query = supabase
+            // Nested filters (orders.payment_status) are not supported by the PG shim —
+            // load paid order ids first, then fetch their line items.
+            let ordersQuery = supabase
+                .from('orders')
+                .select('id, created_at, status, payment_status')
+                .eq('payment_status', 'paid')
+                .neq('status', 'cancelled');
+
+            if (startDate) {
+                ordersQuery = ordersQuery.gte('created_at', startDate);
+            }
+
+            const { data: paidOrders, error: ordersError } = await ordersQuery;
+            if (ordersError) throw ordersError;
+
+            const orderIds = (paidOrders || []).map((o: any) => o.id);
+            if (orderIds.length === 0) {
+                setStats([]);
+                return;
+            }
+
+            const { data, error } = await supabase
                 .from('order_items')
                 .select(`
           quantity,
@@ -55,22 +75,15 @@ export default function ProductSalesStats({ isOpen, onClose }: { isOpen: boolean
           product_id,
           variant_name,
           total_price,
-          orders!inner (
+          order_id,
+          orders (
             id,
             created_at,
             status,
             payment_status
           )
-        `);
-
-            // Only include paid orders (confirmed) and exclude cancelled
-            query = query.eq('orders.payment_status', 'paid').neq('orders.status', 'cancelled');
-
-            if (startDate) {
-                query = query.gte('orders.created_at', startDate);
-            }
-
-            const { data, error } = await query;
+        `)
+                .in('order_id', orderIds);
 
             if (error) throw error;
 
@@ -94,16 +107,16 @@ export default function ProductSalesStats({ isOpen, onClose }: { isOpen: boolean
 
                     const entry = map.get(pid)!;
                     entry.itemsSold += (item.quantity || 0);
-                    entry.totalRevenue += (item.total_price || 0);
+                    entry.totalRevenue += Number(item.total_price || 0);
 
                     // Track variants
                     const variantName = item.variant_name || 'Default';
                     const existing = entry.variants.get(variantName) || { quantity: 0, revenue: 0 };
                     existing.quantity += (item.quantity || 0);
-                    existing.revenue += (item.total_price || 0);
+                    existing.revenue += Number(item.total_price || 0);
                     entry.variants.set(variantName, existing);
 
-                    const orderId = item.orders?.id;
+                    const orderId = item.orders?.id || item.order_id;
                     if (orderId && !entry._orderIds.has(orderId)) {
                         entry.ordersCount++;
                         entry._orderIds.add(orderId);
