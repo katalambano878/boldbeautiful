@@ -216,6 +216,7 @@ export default function CheckoutPage() {
           product_id: productId,
           product_name: item.name,
           variant_name: item.variant,
+          variant_id: item.variantId || null,
           quantity: item.quantity,
           unit_price: item.price,
           total_price: item.price * item.quantity,

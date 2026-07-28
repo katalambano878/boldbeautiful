@@ -9,6 +9,7 @@ export type CartItem = {
     image: string;
     quantity: number;
     variant?: string;
+    variantId?: string;
     slug: string;
     maxStock: number;
     moq?: number; // Minimum Order Quantity

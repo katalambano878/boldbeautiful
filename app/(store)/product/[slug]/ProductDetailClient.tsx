@@ -11,7 +11,7 @@ import { StructuredData, generateProductSchema, generateBreadcrumbSchema } from 
 import { notFound } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { usePageTitle } from '@/hooks/usePageTitle';
-import { money } from '@/lib/format-money';
+import { asNumber, money } from '@/lib/format-money';
 
 // Map common color names to hex values for the swatch preview
 function colorNameToHex(name: string): string {
@@ -79,10 +79,20 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
         }
 
         // Transform product data
-        // Map variant colors from option2, and extract color_hex from metadata
+        // Color may be option1 or option2 depending on option_names order
+        const optionNamesMeta: string[] = productData.metadata?.option_names || [];
+        const colorOptIndex = optionNamesMeta.findIndex((n: string) => /color/i.test(String(n)));
+        const colorKey =
+          colorOptIndex === 0 ? 'option1' :
+          colorOptIndex === 1 ? 'option2' :
+          colorOptIndex === 2 ? 'option3' :
+          'option1';
+
         const rawVariants = (productData.product_variants || []).map((v: any) => ({
           ...v,
-          color: v.option2 || '',
+          price: asNumber(v.price, asNumber(productData.price)),
+          quantity: asNumber(v.quantity),
+          color: v[colorKey] || v.option1 || v.option2 || '',
           colorHex: v.metadata?.color_hex || ''
         }));
 
@@ -90,8 +100,9 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
         const colorHexMap: Record<string, string> = {};
         rawVariants.forEach((v: any) => {
           if (v.color) {
-            if (!colorHexMap[v.color]) {
-              colorHexMap[v.color] = v.colorHex || colorNameToHex(v.color);
+            const plain = String(v.color).split('|')[0];
+            if (!colorHexMap[plain]) {
+              colorHexMap[plain] = v.colorHex || colorNameToHex(plain);
             }
           }
         });
@@ -100,11 +111,11 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
           ...productData,
           images: productData.product_images?.sort((a: any, b: any) => a.position - b.position).map((img: any) => img.url) || [],
           category: productData.categories?.name || 'Shop',
-          rating: productData.rating_avg || 0,
+          rating: asNumber(productData.rating_avg),
           reviewCount: 0,
-          stockCount: productData.quantity,
+          stockCount: asNumber(productData.quantity),
           moq: productData.moq || 1,
-          colors: [...new Set(rawVariants.map((v: any) => v.color).filter(Boolean))],
+          colors: [...new Set(rawVariants.map((v: any) => String(v.color).split('|')[0]).filter(Boolean))],
           colorHexMap,
           variants: rawVariants,
           sizes: rawVariants.map((v: any) => v.name) || [],
@@ -202,17 +213,71 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
     allOptionLabels.push({
       name: label,
       values: opt.values || [],
-      isColor: key === 'color',
-      generatesVariants: opt.generatesVariants ?? false,
+      isColor: key === 'color' || /color/i.test(label),
+      generatesVariants: opt.generatesVariants ?? optionNames.includes(label),
     });
   });
 
   // Add custom option groups
   customOptionGroups.forEach(g => {
     if (!allOptionLabels.some(o => o.name === g.name)) {
-      allOptionLabels.push({ name: g.name, values: g.values, isColor: false, generatesVariants: g.generatesVariants ?? false });
+      allOptionLabels.push({
+        name: g.name,
+        values: g.values,
+        isColor: /color/i.test(g.name),
+        generatesVariants: g.generatesVariants ?? optionNames.includes(g.name),
+      });
     }
   });
+
+  // Seeded / admin products often store option_names + variants but not product_options.
+  // Derive selectable values from variant option1/option2/option3 so UI always appears.
+  if (hasVariants && optionNames.length > 0) {
+    optionNames.forEach((name, idx) => {
+      const existing = allOptionLabels.find(o => o.name === name);
+      const key = `option${idx + 1}`;
+      const values = [...new Set(
+        (product.variants || [])
+          .map((v: any) => v[key])
+          .filter((v: any) => v != null && String(v).trim() !== '')
+          .map((v: any) => String(v).split('|')[0].trim())
+      )];
+      if (!values.length) return;
+      if (existing) {
+        if (!existing.values.length) existing.values = values;
+        existing.generatesVariants = true;
+      } else {
+        allOptionLabels.push({
+          name,
+          values,
+          isColor: /color/i.test(name),
+          generatesVariants: true,
+        });
+      }
+    });
+  }
+
+  // Also accept products.options jsonb: [{ name, values }]
+  if (Array.isArray(product?.options)) {
+    for (const g of product.options) {
+      if (!g?.name || !Array.isArray(g.values) || !g.values.length) continue;
+      const existing = allOptionLabels.find(o => o.name === g.name);
+      if (existing) {
+        if (!existing.values.length) existing.values = g.values.map((v: string) => String(v).split('|')[0]);
+      } else {
+        allOptionLabels.push({
+          name: g.name,
+          values: g.values.map((v: string) => String(v).split('|')[0]),
+          isColor: /color/i.test(g.name),
+          generatesVariants: optionNames.includes(g.name) || optionNames.length === 0,
+        });
+      }
+    }
+  }
+
+  const variantOptionNames = optionNames.length > 0
+    ? optionNames
+    : allOptionLabels.filter(o => o.generatesVariants && o.values.length > 0).map(o => o.name);
 
   const allOptionsSelected = (() => {
     const required = allOptionLabels.filter(o => o.values.length > 0);
@@ -221,14 +286,22 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
   const needsVariantSelection = hasVariants && !selectedVariant;
 
   const handleOptionSelect = (optName: string, val: string) => {
-    const newOpts = { ...selectedOptions, [optName]: val };
+    // Color swatches may store "Name|#hex" — match variants on the plain name
+    const plainVal = String(val).split('|')[0].trim();
+    const newOpts = { ...selectedOptions, [optName]: plainVal };
     setSelectedOptions(newOpts);
     // Auto-find matching variant when all variant-generating options are selected
-    if (optionNames.length > 0) {
-      const allVarSelected = optionNames.every(n => newOpts[n]);
+    if (variantOptionNames.length > 0) {
+      const allVarSelected = variantOptionNames.every(n => newOpts[n]);
       if (allVarSelected && product?.variants) {
         const match = product.variants.find((v: any) =>
-          optionNames.every((n: string, idx: number) => v[`option${idx + 1}`] === newOpts[n])
+          variantOptionNames.every((n: string, idx: number) => {
+            const optionKey = optionNames.length > 0
+              ? `option${idx + 1}`
+              : `option${allOptionLabels.findIndex(o => o.name === n) + 1}`;
+            const variantVal = String(v[optionKey] ?? '').split('|')[0].trim();
+            return variantVal === newOpts[n];
+          })
         );
         setSelectedVariant(match || null);
       } else {
@@ -238,8 +311,10 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
   };
 
   // Determine the active price: variant price if selected, otherwise base price
-  const activePrice = selectedVariant?.price ?? product?.price ?? 0;
-  const activeStock = selectedVariant ? (selectedVariant.stock ?? selectedVariant.quantity ?? product?.stockCount ?? 0) : (product?.stockCount ?? 0);
+  const activePrice = asNumber(selectedVariant?.price, asNumber(product?.price));
+  const activeStock = selectedVariant
+    ? asNumber(selectedVariant.stock ?? selectedVariant.quantity, asNumber(product?.stockCount))
+    : asNumber(product?.stockCount);
 
   const handleAddToCart = () => {
     if (!product) return;
@@ -248,7 +323,7 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
     // Build variant display string from selected options
     let variantLabel: string | undefined;
     if (selectedVariant) {
-      const parts = optionNames.map(n => selectedOptions[n]).filter(Boolean);
+      const parts = variantOptionNames.map(n => selectedOptions[n]).filter(Boolean);
       variantLabel = parts.length > 0 ? parts.join(' / ') : (selectedVariant.name || undefined);
     }
 
@@ -259,6 +334,7 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
       image: product.images[0],
       quantity: quantity,
       variant: variantLabel,
+      variantId: selectedVariant?.id,
       slug: product.slug,
       maxStock: activeStock,
       moq: product.moq || 1
@@ -292,8 +368,13 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
     );
   }
 
-  const discount = product.compare_at_price ? Math.round((1 - activePrice / product.compare_at_price) * 100) : 0;
-  const minVariantPrice = hasVariants ? Math.min(...product.variants.map((v: any) => v.price || product.price)) : product.price;
+  const compareAt = asNumber(product.compare_at_price, NaN);
+  const discount = Number.isFinite(compareAt) && compareAt > 0
+    ? Math.round((1 - activePrice / compareAt) * 100)
+    : 0;
+  const minVariantPrice = hasVariants
+    ? Math.min(...product.variants.map((v: any) => asNumber(v.price, asNumber(product.price))))
+    : asNumber(product.price);
 
   const productSchema = generateProductSchema({
     name: product.name,
@@ -464,21 +545,25 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
                           </div>
                           <div className="flex flex-wrap gap-2">
                             {opt.values.map((val: string) => {
-                              const [colorName, hex] = val.split('|');
-                              const isSelected = selected === val;
+                              const [colorName, hexFromVal] = val.split('|');
+                              const plain = (colorName || val).trim();
+                              const hex = hexFromVal || product.colorHexMap?.[plain] || colorNameToHex(plain);
+                              const isSelected = selected === plain || selected === val;
                               return (
                                 <button
                                   key={val}
+                                  type="button"
                                   onClick={() => handleOptionSelect(opt.name, val)}
-                                  className={`group relative flex flex-col items-center gap-1 cursor-pointer`}
-                                  title={colorName}
+                                  className="group relative flex flex-col items-center gap-1 cursor-pointer"
+                                  title={plain}
                                 >
                                   <span
                                     className={`w-9 h-9 rounded-full border-2 transition-all ${
                                       isSelected ? 'border-gray-900 ring-2 ring-gray-900 ring-offset-2' : 'border-gray-300 hover:border-gray-500'
                                     }`}
-                                    style={{ backgroundColor: hex || '#000' }}
+                                    style={{ backgroundColor: hex || '#d1d5db' }}
                                   />
+                                  <span className="text-[10px] text-gray-600 max-w-[4.5rem] truncate">{plain}</span>
                                 </button>
                               );
                             })}
@@ -520,20 +605,21 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
                   })}
                 </div>
 
-                {/* Fallback: legacy variant selector */}
-                {hasVariants && optionNames.length === 0 && (
+                {/* Fallback: legacy variant selector when no option groups could be built */}
+                {hasVariants && allOptionLabels.every(o => o.values.length === 0) && (
                   <div className="mb-6">
                     <label className="block font-semibold text-gray-900 mb-2 text-sm">
-                      Variant
+                      Options
                     </label>
                     <div className="flex flex-wrap gap-2">
                       {product.variants.map((variant: any) => {
                         const isSelected = selectedVariant?.id === variant.id;
-                        const variantStock = variant.stock ?? variant.quantity ?? 0;
-                        const isOutOfStock = variantStock === 0 && product.stockCount === 0;
+                        const variantStock = asNumber(variant.stock ?? variant.quantity);
+                        const isOutOfStock = variantStock === 0;
                         return (
                           <button
                             key={variant.id || variant.name}
+                            type="button"
                             onClick={() => setSelectedVariant(variant)}
                             disabled={isOutOfStock}
                             className={`px-4 py-2 rounded-md border font-medium text-sm transition-all cursor-pointer flex flex-col items-center ${
@@ -545,6 +631,11 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
                             }`}
                           >
                             <span>{variant.name}</span>
+                            {hasVariants && (
+                              <span className={`text-[10px] mt-0.5 ${isSelected ? 'text-gray-200' : 'text-gray-500'}`}>
+                                GH₵{money(variant.price)}
+                              </span>
+                            )}
                           </button>
                         );
                       })}
