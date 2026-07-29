@@ -17,6 +17,16 @@ const nextConfig: NextConfig = {
         hostname: 'placehold.co',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'www.boldnbeautiful.store',
+        pathname: '/storage/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'boldnbeautiful.store',
+        pathname: '/storage/**',
+      },
     ],
   },
   eslint: {

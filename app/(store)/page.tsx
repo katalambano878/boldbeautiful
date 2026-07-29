@@ -39,10 +39,12 @@ export default function Home() {
 
         if (categoriesError) throw categoriesError;
 
-        const featuredCategories = (categoriesData || []).filter(
+        const allCats = categoriesData || [];
+        const featuredCategories = allCats.filter(
           (cat: any) => cat.metadata?.featured === true
         );
-        setCategories(featuredCategories.slice(0, 6));
+        // Fall back to all active categories when none are flagged featured
+        setCategories((featuredCategories.length > 0 ? featuredCategories : allCats).slice(0, 6));
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
