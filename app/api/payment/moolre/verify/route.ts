@@ -54,51 +54,66 @@ export async function POST(req: Request) {
         let moolreApiVerified = false;
         
         if (process.env.MOOLRE_API_USER && process.env.MOOLRE_API_PUBKEY) {
-            try {
-                // Try the embed/status endpoint
-                const checkResponse = await fetch('https://api.moolre.com/embed/status', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-API-USER': process.env.MOOLRE_API_USER,
-                        'X-API-PUBKEY': process.env.MOOLRE_API_PUBKEY
-                    },
-                    body: JSON.stringify({ externalref: orderNumber })
-                });
+            const refsToTry = [
+                order.metadata?.last_moolre_externalref,
+                orderNumber,
+            ].filter(Boolean) as string[];
 
-                const checkResult = await checkResponse.json();
-                console.log('[Verify] Moolre API response:', JSON.stringify(checkResult));
-                
-                const statusStr = String(checkResult.data?.status || '').toLowerCase();
-                moolreApiVerified = 
-                    statusStr === 'success' || 
-                    statusStr === 'successful' || 
-                    statusStr === 'completed' || 
-                    statusStr === 'paid' ||
-                    (checkResult.status === 1 && checkResult.data);
-                    
-            } catch (moolreError: any) {
-                console.warn('[Verify] Moolre API check failed:', moolreError.message);
+            for (const externalref of refsToTry) {
+                try {
+                    const checkResponse = await fetch('https://api.moolre.com/embed/status', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-API-USER': process.env.MOOLRE_API_USER,
+                            'X-API-PUBKEY': process.env.MOOLRE_API_PUBKEY
+                        },
+                        body: JSON.stringify({ externalref }),
+                        signal: AbortSignal.timeout(15000),
+                    });
+
+                    const checkResult = await checkResponse.json();
+                    console.log('[Verify] Moolre API response for', externalref, ':', JSON.stringify(checkResult).slice(0, 400));
+
+                    const statusStr = String(checkResult.data?.status || checkResult.data?.txtstatus || '').toLowerCase();
+                    const ok =
+                        statusStr === 'success' ||
+                        statusStr === 'successful' ||
+                        statusStr === 'completed' ||
+                        statusStr === 'paid' ||
+                        statusStr === '1' ||
+                        checkResult.data?.txtstatus === 1 ||
+                        (checkResult.status === 1 && checkResult.data && (
+                            String(checkResult.message || '').toLowerCase().includes('success')
+                        ));
+
+                    if (ok) {
+                        moolreApiVerified = true;
+                        break;
+                    }
+                } catch (moolreError: any) {
+                    console.warn('[Verify] Moolre API check failed:', moolreError.message);
+                }
             }
         }
 
-        // 4. Determine if we should mark as paid
-        // Trust the redirect from Moolre as proof of payment.
-        // Moolre only redirects to our success URL (with payment_success=true) after payment completes.
-        // The redirect URL is set by us in the payment request, so only Moolre can trigger it.
-        const shouldMarkPaid = moolreApiVerified || fromRedirect === true;
+        // 4. Only mark paid after gateway API confirmation.
+        // Browser redirect (fromRedirect) is NOT proof of payment — callbacks / API verify are.
+        if (fromRedirect === true && !moolreApiVerified) {
+            console.log('[Verify] Ignoring fromRedirect without API confirmation:', orderNumber);
+        }
 
-        if (!shouldMarkPaid) {
+        if (!moolreApiVerified) {
             console.log('[Verify] Cannot verify payment for:', orderNumber);
             return NextResponse.json({ 
                 success: false, 
                 status: order.status,
                 payment_status: order.payment_status,
-                message: 'Payment not yet confirmed' 
+                message: 'Payment not yet confirmed. Waiting for gateway callback.' 
             });
         }
 
-        const verifySource = moolreApiVerified ? 'moolre-api' : 'redirect-verification';
+        const verifySource = 'moolre-api';
         console.log('[Verify] Marking order paid via:', verifySource, 'for:', orderNumber);
 
         // 5. Mark as paid

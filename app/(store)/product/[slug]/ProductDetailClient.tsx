@@ -67,6 +67,8 @@ export default function ProductDetailClient({ slug }: { slug: string }) {
               query = query.eq('slug', slug);
             }
 
+            query = query.eq('status', 'active');
+
             return query.single() as any;
           },
           2 * 60 * 1000 // 2 minutes

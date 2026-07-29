@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { checkRateLimit, getClientIdentifier, RATE_LIMITS } from '@/lib/rate-limit';
+import { supabaseAdmin as supabase } from '@/lib/supabase-admin';
+import { asNumber } from '@/lib/format-money';
 
 export async function POST(req: Request) {
     try {
@@ -21,10 +23,29 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { orderId, amount, customerEmail } = body;
+        const { orderId, customerEmail } = body;
 
-        if (!orderId || !amount) {
-            return NextResponse.json({ success: false, message: 'Missing orderId or amount' }, { status: 400 });
+        if (!orderId) {
+            return NextResponse.json({ success: false, message: 'Missing orderId' }, { status: 400 });
+        }
+
+        // Trusted amount from DB order — never trust client-supplied amount
+        const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .select('order_number, total, payment_status, email, currency, metadata')
+            .eq('order_number', orderId)
+            .maybeSingle();
+
+        if (orderError || !order) {
+            return NextResponse.json({ success: false, message: 'Order not found' }, { status: 404 });
+        }
+        if (order.payment_status === 'paid') {
+            return NextResponse.json({ success: false, message: 'Order already paid' }, { status: 400 });
+        }
+
+        const amount = asNumber(order.total);
+        if (!(amount > 0)) {
+            return NextResponse.json({ success: false, message: 'Invalid order total' }, { status: 400 });
         }
 
         // Ensure environment variables are set
@@ -44,21 +65,38 @@ export async function POST(req: Request) {
         // Moolre Payload
         const payload = {
             type: 1,
-            amount: amount.toString(), // Ensure string
+            amount: amount.toFixed(2),
             email: process.env.MOOLRE_MERCHANT_EMAIL || 'pobeenina2@gmail.com',
             externalref: uniqueRef,
             callback: `${baseUrl}/api/payment/moolre/callback`,
             redirect: `${baseUrl}/order-success?order=${orderId}&payment_success=true`,
             reusable: "0",
-            currency: "GHS",
+            currency: order.currency || "GHS",
             accountnumber: process.env.MOOLRE_ACCOUNT_NUMBER,
             metadata: {
-                customer_email: customerEmail,
+                customer_email: customerEmail || order.email,
                 original_order_number: orderId
             }
         };
 
         console.log('[Payment] Initiating for order:', orderId, '| Amount:', amount, '| Callback:', payload.callback);
+
+        // Persist attempt ref so verify can query Moolre with the exact externalref
+        const prevMeta =
+            order.metadata && typeof order.metadata === 'object' && !Array.isArray(order.metadata)
+                ? order.metadata
+                : {};
+        await supabase
+            .from('orders')
+            .update({
+                metadata: {
+                    ...prevMeta,
+                    payment_method: 'moolre',
+                    last_moolre_externalref: uniqueRef,
+                    last_payment_attempt_at: new Date().toISOString(),
+                },
+            })
+            .eq('order_number', orderId);
 
         const response = await fetch('https://api.moolre.com/embed/link', {
             method: 'POST',

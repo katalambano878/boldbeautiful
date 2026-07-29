@@ -2,18 +2,50 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { adminCreateUser, adminListUsers } from '@/lib/db/auth';
 
-export async function POST() {
+/**
+ * Bootstrap admin users. Disabled unless SEED_ADMIN_SECRET is set and
+ * provided as Authorization: Bearer <secret>.
+ * Do not ship hardcoded passwords — pass them in the request body.
+ */
+export async function POST(request: Request) {
+  const seedSecret = process.env.SEED_ADMIN_SECRET;
+  if (!seedSecret) {
+    return NextResponse.json(
+      { error: 'seed-admin is disabled (SEED_ADMIN_SECRET not configured)' },
+      { status: 404 }
+    );
+  }
+
+  const auth = request.headers.get('authorization') || '';
+  if (auth !== `Bearer ${seedSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   try {
+    const body = await request.json().catch(() => ({}));
+    const admins = Array.isArray(body.admins) ? body.admins : null;
+
+    if (!admins?.length) {
+      return NextResponse.json(
+        {
+          error:
+            'Provide { "admins": [{ "email": "...", "password": "..." }] } — passwords are not stored in source.',
+        },
+        { status: 400 }
+      );
+    }
+
     const supabase = supabaseAdmin;
-
-    const admins = [
-      { email: 'admin@boutique.store', password: 'G7z!pL9q#V2mR4xT' },
-      { email: 'owner@boutique.store', password: 'Kx8#mW3nP5vQ9jBr' },
-    ];
-
     const results: { email: string; success: boolean; error?: string }[] = [];
 
-    for (const { email, password } of admins) {
+    for (const entry of admins) {
+      const email = String(entry.email || '').trim().toLowerCase();
+      const password = String(entry.password || '');
+      if (!email || password.length < 10) {
+        results.push({ email: email || '(missing)', success: false, error: 'Invalid email/password' });
+        continue;
+      }
+
       let userId: string | null = null;
 
       const { user: created, error: createError } = await adminCreateUser({
@@ -33,7 +65,7 @@ export async function POST() {
         }
 
         const existing =
-          users.find((u) => u.email && u.email.toLowerCase() === email.toLowerCase()) ?? null;
+          users.find((u) => u.email && u.email.toLowerCase() === email) ?? null;
 
         if (!existing) {
           results.push({

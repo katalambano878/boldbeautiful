@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/db/supabase-compat";
 import { isPlainPostgres } from "@/lib/db/mode";
+import { authorizeRpc, resolveRestActor } from "@/lib/db/rest-acl";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -30,7 +31,13 @@ export async function POST(
     return NextResponse.json({ message: "Invalid function name" }, { status: 400 });
   }
 
-  const args = (await req.json().catch(() => ({}))) as Record<string, any>;
+  const actor = await resolveRestActor(req);
+  const authz = authorizeRpc(actor, fn);
+  if (!authz.ok) {
+    return NextResponse.json({ message: authz.message, code: "PGRST301" }, { status: authz.status });
+  }
+
+  const args = (await req.json().catch(() => ({}))) as Record<string, unknown>;
   const client = createClient();
   const { data, error } = await client.rpc(fn, args);
   if (error) {

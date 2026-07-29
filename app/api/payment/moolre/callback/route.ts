@@ -114,21 +114,19 @@ export async function POST(req: Request) {
             return NextResponse.json({ success: false, message: 'Missing order reference' }, { status: 400 });
         }
 
-        // Verify payment success
-        // Moolre: status=1 + data.txtstatus=1 + message contains "successful"
+        // Require transaction success — do not mark paid on message text alone
         const isSuccess =
-            (apiStatus === 1 || apiStatus === '1') ||
             (txStatus === 1 || txStatus === '1') ||
-            messageStr.includes('successful') ||
-            messageStr.includes('success') ||
-            messageStr.includes('completed') ||
-            messageStr.includes('paid');
+            ((apiStatus === 1 || apiStatus === '1') &&
+                (messageStr.includes('successful') || messageStr.includes('transaction successful')));
 
-        // Verify secret if configured (optional security check)
+        // Secret: if configured, it MUST be present and match
         const expectedSecret = process.env.MOOLRE_CALLBACK_SECRET;
-        if (expectedSecret && body.secret && body.secret !== expectedSecret) {
-            console.error('[Callback] Secret mismatch! Possible spoofed callback.');
-            return NextResponse.json({ success: false, message: 'Invalid secret' }, { status: 403 });
+        if (expectedSecret) {
+            if (!body.secret || body.secret !== expectedSecret) {
+                console.error('[Callback] Missing or invalid callback secret');
+                return NextResponse.json({ success: false, message: 'Invalid secret' }, { status: 403 });
+            }
         }
 
         if (isSuccess) {
@@ -152,10 +150,13 @@ export async function POST(req: Request) {
                 return NextResponse.json({ success: true, message: 'Order already processed' });
             }
 
-            // Verify amount if available
+            // Reject amount mismatches (do not mark paid)
             const callbackAmount = data.amount ? parseFloat(data.amount) : (body.amount ? parseFloat(body.amount) : null);
-            if (callbackAmount && Math.abs(callbackAmount - Number(existingOrder.total)) > 0.01) {
-                console.warn('[Callback] Amount mismatch! Expected:', existingOrder.total, 'Got:', callbackAmount);
+            if (callbackAmount != null && Number.isFinite(callbackAmount)) {
+                if (Math.abs(callbackAmount - Number(existingOrder.total)) > 0.01) {
+                    console.error('[Callback] Amount mismatch! Expected:', existingOrder.total, 'Got:', callbackAmount);
+                    return NextResponse.json({ success: false, message: 'Amount mismatch' }, { status: 400 });
+                }
             }
 
             // Mark order as paid via RPC
