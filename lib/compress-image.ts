@@ -22,9 +22,9 @@ export async function compressImage(
   }
 
   const {
-    maxSizeMB = 1,
-    maxWidthOrHeight = 1920,
-    quality = 0.8,
+    maxSizeMB = 0.6,
+    maxWidthOrHeight = 1400,
+    quality = 0.75,
   } = options;
 
   if (file.size <= maxSizeMB * 1024 * 1024) {
@@ -49,9 +49,9 @@ export async function compressImage(
 
 export async function compressImageForUpload(file: File): Promise<File> {
   return compressImage(file, {
-    maxSizeMB: 1,
-    maxWidthOrHeight: 1920,
-    quality: 0.8,
+    maxSizeMB: 0.6,
+    maxWidthOrHeight: 1400,
+    quality: 0.75,
   });
 }
 

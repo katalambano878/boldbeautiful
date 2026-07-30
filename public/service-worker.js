@@ -1,5 +1,5 @@
 // Bold Beautiful - network-first pages; no HTML shell cache (playbook section 16)
-const CACHE_VERSION = 'sw-v2.5-boldbeautiful';
+const CACHE_VERSION = 'sw-v2.6-boldbeautiful';
 const STATIC_CACHE = `static-${CACHE_VERSION}`;
 const IMAGE_CACHE = `images-${CACHE_VERSION}`;
 const API_CACHE = `api-${CACHE_VERSION}`;
@@ -90,7 +90,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Product / CMS images on disk: network only (never poison with SVG fallback)
+  // Public product images: cache-first after first fetch (immutable uploads)
+  if (url.pathname.startsWith('/storage/v1/object/public/')) {
+    event.respondWith(
+      caches.open(IMAGE_CACHE).then(async (cache) => {
+        const cached = await cache.match(request);
+        if (cached) return cached;
+        try {
+          const response = await fetch(request);
+          if (response.ok) {
+            cache.put(request, response.clone());
+            trimCache(IMAGE_CACHE, IMAGE_CACHE_LIMIT);
+          }
+          return response;
+        } catch {
+          return cached || Response.error();
+        }
+      })
+    );
+    return;
+  }
+
+  // Other storage / uploads: network only (never poison with SVG fallback)
   if (url.pathname.startsWith('/uploads/') || url.pathname.startsWith('/storage/')) {
     event.respondWith(fetch(request));
     return;

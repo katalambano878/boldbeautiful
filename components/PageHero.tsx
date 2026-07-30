@@ -21,7 +21,15 @@ export default function PageHero({ title, subtitle, backgroundImage }: PageHeroP
             >
                 {backgroundImage ? (
                     <>
-                        <Image src={backgroundImage} alt="" fill className="object-cover" sizes="100vw" priority />
+                        <Image
+                          src={backgroundImage}
+                          alt=""
+                          fill
+                          className="object-cover"
+                          sizes="100vw"
+                          priority
+                          quality={75}
+                        />
                         <div className="absolute inset-0 bg-gray-900/70" aria-hidden />
                     </>
                 ) : (

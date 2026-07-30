@@ -60,7 +60,7 @@ export default function Home() {
   const heroSubheadline =
     getSetting('hero_subheadline') ||
     'Curated fashion, beauty and home essentials — handpicked for quality and design.';
-  const HERO_SLIDES = ['/hero-1.jpeg', '/hero-2.jpeg', '/hero-3.png'];
+  const HERO_SLIDES = ['/hero-1.jpeg', '/hero-2.jpeg', '/hero-3.jpeg'];
   const HERO_INTERVAL_MS = 3000;
   const [heroIndex, setHeroIndex] = useState(0);
   useEffect(() => {
@@ -114,12 +114,6 @@ export default function Home() {
       {/* Hero Section */}
       <section className="relative w-full min-h-[85vh] lg:min-h-screen flex flex-col justify-end overflow-hidden bg-black">
         <div className="absolute inset-0 z-0 bg-black">
-          {/* Pre-load off-screen so Next.js optimises all slides eagerly */}
-          <div className="sr-only" aria-hidden>
-            {HERO_SLIDES.map((src) => (
-              <Image key={`preload-${src}`} src={src} width={1} height={1} priority alt="" quality={100} />
-            ))}
-          </div>
           <AnimatePresence initial={false} mode="sync">
             <motion.div
               key={heroIndex}
@@ -137,10 +131,9 @@ export default function Home() {
                 fill
                 className="object-cover object-top"
                 alt={`Boutique hero ${heroIndex + 1}`}
-                priority
+                priority={heroIndex === 0}
                 sizes="100vw"
-                quality={100}
-                unoptimized
+                quality={75}
               />
             </motion.div>
           </AnimatePresence>

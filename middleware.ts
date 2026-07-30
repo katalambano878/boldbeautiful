@@ -85,11 +85,14 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // Keep public product images cacheable — only lock down mutating/API paths
+  const isPublicStorage = pathname.startsWith('/storage/v1/object/public/');
   if (
-    pathname.startsWith('/api/') ||
-    pathname.startsWith('/rest/') ||
-    pathname.startsWith('/auth/v1') ||
-    pathname.startsWith('/storage/')
+    !isPublicStorage &&
+    (pathname.startsWith('/api/') ||
+      pathname.startsWith('/rest/') ||
+      pathname.startsWith('/auth/v1') ||
+      pathname.startsWith('/storage/'))
   ) {
     response.headers.set('Cache-Control', 'no-store');
   }
