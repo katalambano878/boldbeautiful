@@ -504,13 +504,13 @@ export default function POSPage() {
                                 <div
                                     key={product.id}
                                     onClick={() => addToCart(product)}
-                                    className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow overflow-hidden border border-gray-100 group flex flex-col h-full ${
+                                    className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 group flex flex-col h-full ${
                                         asNumber(product.quantity) <= 0
                                             ? 'opacity-50 cursor-not-allowed'
                                             : 'cursor-pointer'
                                     }`}
                                 >
-                                    <div className="aspect-square relative bg-gray-50 shrink-0">
+                                    <div className="aspect-square relative bg-gray-50 shrink-0 overflow-hidden rounded-t-xl">
                                         <img
                                             src={product.image}
                                             alt={product.name}
@@ -520,12 +520,18 @@ export default function POSPage() {
                                             Qty: {product.quantity}
                                         </div>
                                     </div>
-                                    <div className="p-3 flex flex-col flex-1">
+                                    <div className="p-3 flex flex-col flex-1 min-w-0">
                                         <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-auto">{product.name}</h3>
-                                        <div className="flex items-center justify-between mt-2 pt-2">
-                                            <span className="text-gray-900 font-bold">GH₵{money(product.price)}</span>
-                                            <button className="w-8 h-8 rounded-full bg-gray-50 text-gray-900 flex items-center justify-center group-hover:bg-gray-900 group-hover:text-white transition-colors">
-                                                <i className="ri-add-line"></i>
+                                        <div className="flex items-center gap-2 mt-2 pt-2 min-w-0">
+                                            <span className="text-gray-900 font-bold text-sm truncate min-w-0 flex-1">
+                                                GH₵{money(product.price)}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                aria-label={`Add ${product.name} to cart`}
+                                                className="w-9 h-9 shrink-0 rounded-full bg-gray-900 text-white flex items-center justify-center shadow-sm hover:bg-gray-800 transition-colors"
+                                            >
+                                                <i className="ri-add-line text-lg"></i>
                                             </button>
                                         </div>
                                     </div>
