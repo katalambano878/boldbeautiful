@@ -98,13 +98,23 @@ export default function AdminLayout({
     }
     fetchModules();
 
-    // Fetch store name and logo
+    // Fetch store name and logo (jsonb may arrive as string or quoted JSON)
     supabase.from('store_settings').select('key, value').in('key', ['site_name', 'site_logo']).then(({ data }) => {
       data?.forEach((row: { key: string; value: unknown }) => {
-        const v = row.value != null ? String(row.value) : '';
+        let v = '';
+        if (typeof row.value === 'string') {
+          v = row.value.replace(/^"|"$/g, '');
+        } else if (row.value != null) {
+          v = String(row.value).replace(/^"|"$/g, '');
+        }
         if (row.key === 'site_name' && v) setStoreName(v);
-        if (row.key === 'site_logo' && v) setStoreLogo(v);
+        if (row.key === 'site_logo' && v && v !== 'null' && v !== '/favicon.png' && v !== '/new.png') {
+          setStoreLogo(v);
+        }
       });
+      if (!data?.length) {
+        setStoreName(process.env.NEXT_PUBLIC_SITE_NAME || 'Bold N Beautiful');
+      }
     });
   }, []);
 
@@ -262,10 +272,12 @@ export default function AdminLayout({
                 src={storeLogo}
                 alt={storeName}
                 className="h-9 w-auto object-contain max-w-[140px]"
-                onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }}
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
               />
-            ) : null}
-            <span className={`text-xl font-bold text-gray-900 ${storeLogo ? 'hidden' : ''}`}>{storeName}</span>
+            ) : (
+              <img src="/favicon.svg" alt="" className="h-9 w-9 rounded-xl shrink-0" />
+            )}
+            <span className="text-xl font-bold text-gray-900 truncate">{storeName}</span>
             <span className="text-sm font-semibold text-gray-500 shrink-0">ADMIN</span>
           </Link>
 
@@ -313,15 +325,38 @@ export default function AdminLayout({
       {/* Main Content */}
       <div className={`transition-all duration-300 ml-0 ${isSidebarOpen ? 'lg:ml-64' : 'lg:ml-0'}`}>
         <header className="bg-white border-b border-gray-200 sticky top-0 z-30">
-          <div className="px-4 py-4 lg:px-6 flex items-center justify-between">
-            <button
-              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer"
-            >
-              <i className={`${isSidebarOpen ? 'ri-menu-fold-line' : 'ri-menu-unfold-line'} text-xl`}></i>
-            </button>
+          <div className="px-4 py-4 lg:px-6 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <button
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                className="w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer shrink-0"
+                aria-label="Toggle sidebar"
+              >
+                <i className={`${isSidebarOpen ? 'ri-menu-fold-line' : 'ri-menu-unfold-line'} text-xl`}></i>
+              </button>
+              <Link href="/admin" className="flex items-center gap-2 min-w-0">
+                {storeLogo ? (
+                  <img
+                    src={storeLogo}
+                    alt={storeName}
+                    className="h-8 w-auto max-w-[120px] object-contain"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : (
+                  <img src="/favicon.svg" alt="" className="h-8 w-8 rounded-lg shrink-0" />
+                )}
+                <span className="font-bold text-gray-900 truncate">{storeName}</span>
+              </Link>
+            </div>
 
-            <div className="flex items-center space-x-2 lg:space-x-4">
+            <div className="flex items-center space-x-2 lg:space-x-4 shrink-0">
+              <Link
+                href="/admin/pos"
+                className="inline-flex items-center gap-2 px-3 py-2 lg:px-4 bg-gray-900 hover:bg-gray-800 text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                <i className="ri-store-3-line text-lg"></i>
+                <span className="hidden sm:inline">POS</span>
+              </Link>
               <button className="relative w-10 h-10 flex items-center justify-center text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors cursor-pointer">
                 <i className="ri-notification-3-line text-xl"></i>
                 <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>

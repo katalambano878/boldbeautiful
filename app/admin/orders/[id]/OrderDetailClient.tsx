@@ -107,9 +107,35 @@ export default function OrderDetailClient({ orderId }: OrderDetailClientProps) {
       }
 
       if (error) throw error;
-      setOrder(data);
-      setTrackingNumber(data.metadata?.tracking_number || '');
-      setAdminNotes(data.notes || '');
+
+      // Fallback: load line items separately if embed came back empty
+      let orderData: any = data;
+      if (orderData && (!orderData.order_items || orderData.order_items.length === 0)) {
+        const { data: items, error: itemsErr } = await supabase
+          .from('order_items')
+          .select(`
+            id,
+            product_id,
+            product_name,
+            variant_name,
+            sku,
+            quantity,
+            unit_price,
+            total_price,
+            metadata,
+            products (
+              product_images (url)
+            )
+          `)
+          .eq('order_id', orderData.id);
+        if (!itemsErr && items) {
+          orderData = { ...orderData, order_items: items };
+        }
+      }
+
+      setOrder(orderData);
+      setTrackingNumber(orderData.metadata?.tracking_number || '');
+      setAdminNotes(orderData.notes || '');
 
     } catch (err: any) {
       console.error('Error fetching order:', err);

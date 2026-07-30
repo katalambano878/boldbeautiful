@@ -664,28 +664,45 @@ export interface SupabaseHttpClient {
 }
 
 export function createSupabaseHttpClient(baseUrl: string, anonKey: string): SupabaseHttpClient {
-  const root = trimSlash(baseUrl);
+  const configuredRoot = trimSlash(baseUrl);
   const storage = defaultStorage();
+
+  /** Same-origin in the browser — avoids www/apex cross-host "Failed to fetch". */
+  const requestRoot = () => {
+    if (typeof window !== "undefined" && window.location?.origin) {
+      return window.location.origin;
+    }
+    return configuredRoot;
+  };
+
+  const sessionKeys = () => {
+    const keys = new Set<string>([storageKey(configuredRoot), storageKey(requestRoot()), "sb-auth-token"]);
+    return Array.from(keys);
+  };
 
   const getAccessToken = () => {
     try {
-      const raw = storage.getItem(storageKey(root));
-      if (!raw) return null;
-      const session = JSON.parse(raw) as Session;
-      return session.access_token || null;
+      for (const key of sessionKeys()) {
+        const raw = storage.getItem(key);
+        if (!raw) continue;
+        const session = JSON.parse(raw) as Session;
+        if (session.access_token) return session.access_token;
+      }
+      return null;
     } catch {
       return null;
     }
   };
 
-  const auth = createAuthApi(root, anonKey, storage);
+  // Auth persist/read against the live origin so login sticks to the host in use
+  const auth = createAuthApi(requestRoot(), anonKey, storage);
 
   return {
     from(table: string) {
-      return new HttpQueryBuilder(table, root, anonKey, getAccessToken);
+      return new HttpQueryBuilder(table, requestRoot(), anonKey, getAccessToken);
     },
     auth,
-    storage: createStorageApi(root, anonKey, getAccessToken),
+    storage: createStorageApi(requestRoot(), anonKey, getAccessToken),
     async rpc(fn: string, args: Record<string, unknown> = {}) {
       try {
         const headers: Record<string, string> = {
@@ -694,7 +711,7 @@ export function createSupabaseHttpClient(baseUrl: string, anonKey: string): Supa
         };
         const token = getAccessToken();
         if (token) headers.Authorization = `Bearer ${token}`;
-        const res = await fetch(`${root}/rest/v1/rpc/${encodeURIComponent(fn)}`, {
+        const res = await fetch(`${requestRoot()}/rest/v1/rpc/${encodeURIComponent(fn)}`, {
           method: "POST",
           headers,
           body: JSON.stringify(args),

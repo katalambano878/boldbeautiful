@@ -4,6 +4,7 @@
  */
 import { jwtVerify } from "jose";
 import { authJwtSecret } from "./mode";
+import { query } from "./pool";
 
 export type RestRole = "anon" | "customer" | "staff" | "admin";
 
@@ -11,6 +12,9 @@ export interface RestActor {
   role: RestRole;
   userId?: string;
 }
+
+const roleCache = new Map<string, { role: RestRole; at: number }>();
+const ROLE_CACHE_MS = 60_000;
 
 /** Catalog / CMS — public read */
 const PUBLIC_READ = new Set([
@@ -103,6 +107,24 @@ const ORDER_SAFE_INSERT_KEYS = new Set([
   "metadata",
 ]);
 
+async function roleFromProfiles(userId: string): Promise<RestRole> {
+  const cached = roleCache.get(userId);
+  if (cached && Date.now() - cached.at < ROLE_CACHE_MS) return cached.role;
+  try {
+    const { rows } = await query<{ role: string }>(
+      `SELECT role FROM profiles WHERE id = $1 LIMIT 1`,
+      [userId]
+    );
+    const r = rows[0]?.role;
+    const role: RestRole =
+      r === "admin" ? "admin" : r === "staff" ? "staff" : "customer";
+    roleCache.set(userId, { role, at: Date.now() });
+    return role;
+  } catch {
+    return "customer";
+  }
+}
+
 export async function resolveRestActor(req: Request): Promise<RestActor> {
   const auth = req.headers.get("authorization") || "";
   const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
@@ -117,7 +139,9 @@ export async function resolveRestActor(req: Request): Promise<RestActor> {
     const role = appMeta.role;
     if (role === "admin") return { role: "admin", userId };
     if (role === "staff") return { role: "staff", userId };
-    return { role: "customer", userId };
+    // Tokens minted before role was embedded — resolve from profiles
+    const dbRole = await roleFromProfiles(userId);
+    return { role: dbRole, userId };
   } catch {
     return { role: "anon" };
   }

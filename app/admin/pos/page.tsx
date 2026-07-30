@@ -312,7 +312,11 @@ export default function POSPage() {
                 .from('order_items')
                 .insert(orderItems);
 
-            if (itemsError) throw itemsError;
+            if (itemsError) {
+                // Don't leave orphan orders with totals but no line items
+                await supabase.from('orders').delete().eq('id', order.id);
+                throw new Error(itemsError.message || 'Failed to save order items');
+            }
 
             // 3. Upsert Customer Record (email is required in customers table)
             const hasRealEmail = customerEmail && customerEmail !== 'pos-walkin@store.local';
@@ -420,7 +424,12 @@ export default function POSPage() {
 
         } catch (error: any) {
             console.error('Checkout failed:', error);
-            setCheckoutError(error.message || 'Checkout failed. Please try again.');
+            const msg = error?.message || String(error) || 'Checkout failed. Please try again.';
+            setCheckoutError(
+                /failed to fetch/i.test(msg)
+                    ? 'Network error talking to the server. Refresh, confirm you are still logged in, and try again.'
+                    : msg
+            );
         } finally {
             setProcessing(false);
         }

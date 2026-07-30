@@ -51,8 +51,14 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <Link href="/" className="inline-block">
-            <img src="/favicon.png" alt="Store Logo" className="h-12 w-auto mx-auto" />
+          <Link href="/" className="inline-flex flex-col items-center gap-3">
+            <img
+              src="/favicon.svg"
+              alt="Bold N Beautiful"
+              className="h-14 w-14 mx-auto rounded-2xl shadow-sm"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+            <span className="text-2xl font-bold tracking-tight text-gray-900">Bold N Beautiful</span>
           </Link>
           <h1 className="text-3xl font-bold text-gray-900 mt-6 mb-2">Admin Login</h1>
           <p className="text-gray-600">Sign in to access the admin dashboard</p>
