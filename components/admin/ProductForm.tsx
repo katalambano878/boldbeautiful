@@ -49,11 +49,86 @@ export default function ProductForm({ initialData, isEditMode = false }: Product
 
     const DEFAULT_OPTION_GROUPS: OptionGroupDef[] = [
         { key: 'color', label: 'Color', type: 'color', defaultValues: [], generatesVariants: false },
-        { key: 'lace_type', label: 'Lace Type', type: 'values', defaultValues: ['HD Lace', 'Transparent Lace'], generatesVariants: false },
-        { key: 'lace_length', label: 'Lace Length', type: 'values', defaultValues: ['2x6', '4x4', '5x5', '6x6', '7x7', '13x4', '13x6'], generatesVariants: false },
-        { key: 'length', label: 'Length', type: 'values', defaultValues: ['10"', '12"', '14"', '16"', '18"', '20"', '22"', '24"', '26"', '28"', '30"'], generatesVariants: true },
-        { key: 'wig_size', label: 'Wig Size', type: 'values', defaultValues: ['Small', 'Medium', 'Large', 'Extra Large'], generatesVariants: false },
-        { key: 'density', label: 'Density', type: 'values', defaultValues: ['250', '300', '350'], generatesVariants: false },
+        { key: 'lace_type', label: 'Lace Type', type: 'values', defaultValues: ['HD Lace', 'Transparent Lace', 'Swiss Lace', 'French Lace', 'Full Lace', 'Lace Front'], generatesVariants: false },
+        { key: 'lace_length', label: 'Lace Length', type: 'values', defaultValues: ['2x6', '4x4', '5x5', '6x6', '7x7', '13x4', '13x6', '360 Lace'], generatesVariants: false },
+        { key: 'length', label: 'Length', type: 'values', defaultValues: ['8"', '10"', '12"', '14"', '16"', '18"', '20"', '22"', '24"', '26"', '28"', '30"', '32"'], generatesVariants: true },
+        { key: 'wig_size', label: 'Wig Size', type: 'values', defaultValues: ['Small', 'Medium', 'Large', 'Extra Large', 'Average'], generatesVariants: false },
+        { key: 'density', label: 'Density', type: 'values', defaultValues: ['130', '150', '180', '200', '250', '300', '350'], generatesVariants: false },
+    ];
+
+    /** Clickable color palette — Name|#hex (fashion / wig / apparel) */
+    const PRESET_COLORS: { name: string; hex: string; group: string }[] = [
+        // Neutrals
+        { name: 'Jet Black', hex: '#0A0A0A', group: 'Neutrals' },
+        { name: 'Natural Black', hex: '#1C1C1C', group: 'Neutrals' },
+        { name: 'Off Black', hex: '#2B2B2B', group: 'Neutrals' },
+        { name: 'Charcoal', hex: '#36454F', group: 'Neutrals' },
+        { name: 'Dark Grey', hex: '#4B5563', group: 'Neutrals' },
+        { name: 'Grey', hex: '#6B7280', group: 'Neutrals' },
+        { name: 'Silver Grey', hex: '#A8A29E', group: 'Neutrals' },
+        { name: 'Ash Blonde', hex: '#C4B7A6', group: 'Neutrals' },
+        { name: 'White', hex: '#FFFFFF', group: 'Neutrals' },
+        { name: 'Ivory', hex: '#FFFFF0', group: 'Neutrals' },
+        { name: 'Cream', hex: '#FFFDD0', group: 'Neutrals' },
+        { name: 'Off White', hex: '#F8F5F0', group: 'Neutrals' },
+        // Browns & blondes
+        { name: 'Dark Brown', hex: '#3B2314', group: 'Browns' },
+        { name: 'Chocolate', hex: '#7B3F00', group: 'Browns' },
+        { name: 'Coffee', hex: '#6F4E37', group: 'Browns' },
+        { name: 'Medium Brown', hex: '#8B5A2B', group: 'Browns' },
+        { name: 'Chestnut', hex: '#954535', group: 'Browns' },
+        { name: 'Auburn', hex: '#A52A2A', group: 'Browns' },
+        { name: 'Copper', hex: '#B87333', group: 'Browns' },
+        { name: 'Caramel', hex: '#C68E17', group: 'Browns' },
+        { name: 'Honey Blonde', hex: '#D9A441', group: 'Browns' },
+        { name: 'Golden Blonde', hex: '#E6BE8A', group: 'Browns' },
+        { name: 'Light Blonde', hex: '#F5DEB3', group: 'Browns' },
+        { name: 'Platinum', hex: '#E5E4E2', group: 'Browns' },
+        { name: 'Ombre Brown', hex: '#5D4037', group: 'Browns' },
+        { name: 'Highlight Blonde', hex: '#F0D9A0', group: 'Browns' },
+        // Warm / fashion
+        { name: 'Nude', hex: '#E3BC9A', group: 'Warm' },
+        { name: 'Beige', hex: '#D4C5A9', group: 'Warm' },
+        { name: 'Tan', hex: '#D2B48C', group: 'Warm' },
+        { name: 'Camel', hex: '#C19A6B', group: 'Warm' },
+        { name: 'Khaki', hex: '#C3B091', group: 'Warm' },
+        { name: 'Sand', hex: '#C2B280', group: 'Warm' },
+        { name: 'Taupe', hex: '#8B7E74', group: 'Warm' },
+        { name: 'Stone', hex: '#928E85', group: 'Warm' },
+        { name: 'Olive', hex: '#808000', group: 'Warm' },
+        { name: 'Sage', hex: '#9CAF88', group: 'Warm' },
+        { name: 'Mustard', hex: '#E1AD01', group: 'Warm' },
+        { name: 'Gold', hex: '#D4AF37', group: 'Warm' },
+        // Reds & pinks
+        { name: 'Burgundy', hex: '#800020', group: 'Reds' },
+        { name: 'Wine', hex: '#722F37', group: 'Reds' },
+        { name: 'Maroon', hex: '#800000', group: 'Reds' },
+        { name: 'Deep Red', hex: '#8B0000', group: 'Reds' },
+        { name: 'Red', hex: '#DC143C', group: 'Reds' },
+        { name: 'Scarlet', hex: '#FF2400', group: 'Reds' },
+        { name: 'Coral', hex: '#FF7F50', group: 'Reds' },
+        { name: 'Peach', hex: '#FFDAB9', group: 'Reds' },
+        { name: 'Rose', hex: '#E8B4B8', group: 'Reds' },
+        { name: 'Blush Pink', hex: '#F9C5D1', group: 'Reds' },
+        { name: 'Hot Pink', hex: '#FF69B4', group: 'Reds' },
+        { name: 'Fuchsia', hex: '#FF00FF', group: 'Reds' },
+        { name: 'Magenta', hex: '#C71585', group: 'Reds' },
+        // Cool / fashion
+        { name: 'Navy', hex: '#1E3A5F', group: 'Cool' },
+        { name: 'Royal Blue', hex: '#4169E1', group: 'Cool' },
+        { name: 'Cobalt', hex: '#0047AB', group: 'Cool' },
+        { name: 'Sky Blue', hex: '#87CEEB', group: 'Cool' },
+        { name: 'Teal', hex: '#008080', group: 'Cool' },
+        { name: 'Turquoise', hex: '#40E0D0', group: 'Cool' },
+        { name: 'Emerald', hex: '#50C878', group: 'Cool' },
+        { name: 'Forest Green', hex: '#228B22', group: 'Cool' },
+        { name: 'Mint', hex: '#98FB98', group: 'Cool' },
+        { name: 'Purple', hex: '#7C3AED', group: 'Cool' },
+        { name: 'Plum', hex: '#8E4585', group: 'Cool' },
+        { name: 'Lilac', hex: '#C8A2C8', group: 'Cool' },
+        { name: 'Lavender', hex: '#E6E6FA', group: 'Cool' },
+        { name: 'Indigo', hex: '#4B0082', group: 'Cool' },
+        { name: 'Silver', hex: '#C0C0C0', group: 'Cool' },
     ];
 
     // State: which option groups are enabled + their current values
@@ -132,15 +207,102 @@ export default function ProductForm({ initialData, isEditMode = false }: Product
         }));
     };
 
+    const colorKey = (name: string, hex: string) => `${name}|${hex.toUpperCase()}`;
+
+    const isColorSelected = (hex: string, name?: string) => {
+        const colors = optionGroupStates.color?.values || [];
+        const hexUp = hex.toUpperCase();
+        return colors.some((v) => {
+            const [n, h] = v.split('|');
+            if ((h || '').toUpperCase() === hexUp) return true;
+            if (name && n?.toLowerCase() === name.toLowerCase()) return true;
+            return false;
+        });
+    };
+
+    const togglePresetColor = (name: string, hex: string) => {
+        const val = colorKey(name, hex);
+        setOptionGroupStates((prev) => {
+            const g = prev.color;
+            const exists = g.values.some((v) => {
+                const [n, h] = v.split('|');
+                return (h || '').toUpperCase() === hex.toUpperCase() || n?.toLowerCase() === name.toLowerCase();
+            });
+            if (exists) {
+                return {
+                    ...prev,
+                    color: {
+                        ...g,
+                        values: g.values.filter((v) => {
+                            const [n, h] = v.split('|');
+                            return (h || '').toUpperCase() !== hex.toUpperCase() && n?.toLowerCase() !== name.toLowerCase();
+                        }),
+                    },
+                };
+            }
+            return { ...prev, color: { ...g, values: [...g.values, val], enabled: true } };
+        });
+    };
+
     const addColorValue = () => {
         const label = colorPickerName.trim() || colorPickerHex;
-        const colorVal = `${label}|${colorPickerHex}`;
+        const colorVal = colorKey(label, colorPickerHex);
         setOptionGroupStates(prev => {
             const g = prev['color'];
-            if (g.values.some(v => v.split('|')[1] === colorPickerHex)) return prev;
-            return { ...prev, color: { ...g, values: [...g.values, colorVal] } };
+            if (g.values.some(v => (v.split('|')[1] || '').toUpperCase() === colorPickerHex.toUpperCase())) return prev;
+            return { ...prev, color: { ...g, values: [...g.values, colorVal], enabled: true } };
         });
         setColorPickerName('');
+    };
+
+    const selectAllPresetColors = () => {
+        setOptionGroupStates((prev) => ({
+            ...prev,
+            color: {
+                ...prev.color,
+                enabled: true,
+                values: PRESET_COLORS.map((c) => colorKey(c.name, c.hex)),
+            },
+        }));
+    };
+
+    const clearColors = () => {
+        setOptionGroupStates((prev) => ({
+            ...prev,
+            color: { ...prev.color, values: [] },
+        }));
+    };
+
+    const togglePresetValue = (key: string, value: string) => {
+        setOptionGroupStates((prev) => {
+            const g = prev[key];
+            if (!g) return prev;
+            const has = g.values.includes(value);
+            return {
+                ...prev,
+                [key]: {
+                    ...g,
+                    enabled: true,
+                    values: has ? g.values.filter((v) => v !== value) : [...g.values, value],
+                },
+            };
+        });
+    };
+
+    const selectAllDefaults = (key: string) => {
+        const def = DEFAULT_OPTION_GROUPS.find((d) => d.key === key);
+        if (!def) return;
+        setOptionGroupStates((prev) => ({
+            ...prev,
+            [key]: { ...prev[key], enabled: true, values: [...def.defaultValues] },
+        }));
+    };
+
+    const clearGroupValues = (key: string) => {
+        setOptionGroupStates((prev) => ({
+            ...prev,
+            [key]: { ...prev[key], values: [] },
+        }));
     };
 
     const resetGroupToDefaults = (key: string) => {
@@ -762,129 +924,269 @@ export default function ProductForm({ initialData, isEditMode = false }: Product
 
                     {activeTab === 'variants' && (
                         <div className="space-y-8">
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-900">Product Options</h3>
-                                <p className="text-gray-600 mt-1">Toggle which option groups apply to this product. Options marked with ⚡ generate price/stock variants.</p>
+                            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900">Product Options</h3>
+                                    <p className="text-gray-600 mt-1">
+                                        Turn on the options this product uses, then click values to select them.
+                                        Mark an option as <span className="font-semibold text-purple-700">⚡ Variant</span> when it needs its own price or stock.
+                                    </p>
+                                </div>
+                                <div className="text-sm text-gray-500 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                                    {Object.values(optionGroupStates).filter((s) => s.enabled).length} groups on ·{' '}
+                                    {optionGroupStates.color?.values.length || 0} colors selected
+                                </div>
                             </div>
 
-                            {/* Default option groups — toggle cards */}
+                            {/* Color — full width clickable palette */}
+                            {(() => {
+                                const state = optionGroupStates.color;
+                                if (!state) return null;
+                                const colorGroups = Array.from(new Set(PRESET_COLORS.map((c) => c.group)));
+                                return (
+                                    <div className={`rounded-2xl border-2 transition-all overflow-hidden ${state.enabled ? 'border-gray-900 bg-white shadow-sm' : 'border-gray-200 bg-gray-50'}`}>
+                                        <div className="flex flex-wrap items-center justify-between gap-3 p-4 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+                                            <label className="flex items-center gap-3 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={state.enabled}
+                                                    onChange={() => toggleOptionGroup('color')}
+                                                    className="w-5 h-5 text-gray-900 border-gray-300 rounded cursor-pointer"
+                                                />
+                                                <div>
+                                                    <span className="font-bold text-gray-900 text-base">Color</span>
+                                                    <p className="text-xs text-gray-500">Tap any swatch to add or remove — no typing needed</p>
+                                                </div>
+                                            </label>
+                                            {state.enabled && (
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => toggleGeneratesVariants('color')}
+                                                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${state.generatesVariants ? 'bg-purple-100 border-purple-300 text-purple-700' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-400'}`}
+                                                    >
+                                                        {state.generatesVariants ? '⚡ Variant' : 'Selection only'}
+                                                    </button>
+                                                    <button type="button" onClick={selectAllPresetColors} className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 font-medium">
+                                                        Select all
+                                                    </button>
+                                                    <button type="button" onClick={clearColors} className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 font-medium text-red-600">
+                                                        Clear
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {state.enabled && (
+                                            <div className="p-4 space-y-5">
+                                                {state.values.length > 0 && (
+                                                    <div>
+                                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                                                            Selected ({state.values.length})
+                                                        </p>
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {state.values.map((val) => {
+                                                                const [name, hex] = val.split('|');
+                                                                return (
+                                                                    <button
+                                                                        key={val}
+                                                                        type="button"
+                                                                        onClick={() => removeValueFromGroup('color', val)}
+                                                                        className="inline-flex items-center gap-2 pl-2 pr-2.5 py-1.5 bg-gray-900 text-white rounded-full text-sm font-medium shadow-sm hover:bg-gray-800"
+                                                                        title="Remove"
+                                                                    >
+                                                                        <span
+                                                                            className="w-5 h-5 rounded-full border border-white/40 flex-shrink-0"
+                                                                            style={{ backgroundColor: hex || '#000' }}
+                                                                        />
+                                                                        {name}
+                                                                        <i className="ri-close-line text-sm opacity-80" />
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {colorGroups.map((group) => (
+                                                    <div key={group}>
+                                                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">{group}</p>
+                                                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+                                                            {PRESET_COLORS.filter((c) => c.group === group).map((c) => {
+                                                                const selected = isColorSelected(c.hex, c.name);
+                                                                const isLight = ['#FFFFFF', '#FFFFF0', '#FFFDD0', '#F8F5F0', '#E5E4E2', '#E6E6FA', '#FFDAB9', '#F5DEB3', '#F9C5D1', '#98FB98', '#C0C0C0', '#E6BE8A', '#F0D9A0'].includes(c.hex.toUpperCase());
+                                                                return (
+                                                                    <button
+                                                                        key={`${c.name}-${c.hex}`}
+                                                                        type="button"
+                                                                        onClick={() => togglePresetColor(c.name, c.hex)}
+                                                                        className={`group/swatch relative flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-all ${
+                                                                            selected
+                                                                                ? 'border-gray-900 bg-gray-50 ring-2 ring-gray-900/10 scale-[1.02]'
+                                                                                : 'border-gray-200 bg-white hover:border-gray-400 hover:shadow-sm'
+                                                                        }`}
+                                                                    >
+                                                                        <span
+                                                                            className={`w-10 h-10 rounded-full shadow-inner ${isLight ? 'border border-gray-300' : 'border border-black/10'}`}
+                                                                            style={{ backgroundColor: c.hex }}
+                                                                        />
+                                                                        <span className="text-[11px] font-medium text-gray-800 text-center leading-tight line-clamp-2 min-h-[1.6rem]">
+                                                                            {c.name}
+                                                                        </span>
+                                                                        {selected && (
+                                                                            <span className="absolute top-1 right-1 w-5 h-5 rounded-full bg-gray-900 text-white flex items-center justify-center">
+                                                                                <i className="ri-check-line text-xs" />
+                                                                            </span>
+                                                                        )}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                ))}
+
+                                                <div className="pt-3 border-t border-gray-100">
+                                                    <p className="text-xs font-semibold text-gray-500 mb-2">Custom color (optional)</p>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <input
+                                                            type="color"
+                                                            value={colorPickerHex}
+                                                            onChange={(e) => setColorPickerHex(e.target.value)}
+                                                            className="w-10 h-10 rounded-lg border-2 border-gray-200 cursor-pointer p-0.5"
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            value={colorPickerName}
+                                                            onChange={(e) => setColorPickerName(e.target.value)}
+                                                            placeholder="Custom name (e.g. Custom Ombre)"
+                                                            className="flex-1 min-w-[160px] px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                                            onKeyDown={(e) => e.key === 'Enter' && addColorValue()}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={addColorValue}
+                                                            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
+                                                        >
+                                                            Add custom
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* Other default option groups — clickable chips */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {DEFAULT_OPTION_GROUPS.map(def => {
+                                {DEFAULT_OPTION_GROUPS.filter((d) => d.type !== 'color').map((def) => {
                                     const state = optionGroupStates[def.key];
                                     if (!state) return null;
-                                    const isColor = def.type === 'color';
                                     return (
-                                        <div key={def.key} className={`rounded-xl border-2 transition-all ${state.enabled ? 'border-gray-900 bg-white shadow-sm' : 'border-gray-200 bg-gray-50 opacity-70'}`}>
-                                            {/* Toggle header */}
-                                            <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                                                <label className="flex items-center gap-3 cursor-pointer flex-1">
+                                        <div
+                                            key={def.key}
+                                            className={`rounded-2xl border-2 transition-all ${state.enabled ? 'border-gray-900 bg-white shadow-sm' : 'border-gray-200 bg-gray-50 opacity-80'}`}
+                                        >
+                                            <div className="flex items-center justify-between p-4 border-b border-gray-100 gap-2">
+                                                <label className="flex items-center gap-3 cursor-pointer flex-1 min-w-0">
                                                     <input
                                                         type="checkbox"
                                                         checked={state.enabled}
                                                         onChange={() => toggleOptionGroup(def.key)}
-                                                        className="w-5 h-5 text-gray-900 border-gray-300 rounded cursor-pointer"
+                                                        className="w-5 h-5 text-gray-900 border-gray-300 rounded cursor-pointer shrink-0"
                                                     />
-                                                    <span className="font-bold text-gray-900">{def.label}</span>
-                                                    {state.enabled && state.generatesVariants && (
-                                                        <span className="text-xs font-medium bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">⚡ Variants</span>
-                                                    )}
+                                                    <div className="min-w-0">
+                                                        <span className="font-bold text-gray-900">{def.label}</span>
+                                                        {state.enabled && (
+                                                            <p className="text-xs text-gray-500">{state.values.length} selected — click to toggle</p>
+                                                        )}
+                                                    </div>
                                                 </label>
                                                 {state.enabled && (
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-1.5 shrink-0 flex-wrap justify-end">
                                                         <button
+                                                            type="button"
                                                             onClick={() => toggleGeneratesVariants(def.key)}
                                                             className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${state.generatesVariants ? 'bg-purple-100 border-purple-300 text-purple-700' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-400'}`}
                                                             title="Toggle whether this option affects price/stock"
                                                         >
                                                             {state.generatesVariants ? '⚡ Variant' : 'Selection only'}
                                                         </button>
-                                                        {!isColor && (
-                                                            <button
-                                                                onClick={() => resetGroupToDefaults(def.key)}
-                                                                className="text-xs text-gray-400 hover:text-gray-700 px-2 py-1"
-                                                                title="Reset to defaults"
-                                                            >
-                                                                <i className="ri-refresh-line"></i>
-                                                            </button>
-                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => selectAllDefaults(def.key)}
+                                                            className="text-xs text-gray-600 hover:text-gray-900 px-2 py-1"
+                                                            title="Select all"
+                                                        >
+                                                            All
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => clearGroupValues(def.key)}
+                                                            className="text-xs text-gray-400 hover:text-red-600 px-2 py-1"
+                                                            title="Clear"
+                                                        >
+                                                            Clear
+                                                        </button>
                                                     </div>
                                                 )}
                                             </div>
 
-                                            {/* Expanded content when enabled */}
                                             {state.enabled && (
                                                 <div className="p-4 space-y-3">
-                                                    {/* Values chips */}
-                                                    {state.values.length > 0 && (
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {state.values.map(val => {
-                                                                if (isColor) {
-                                                                    const [name, hex] = val.split('|');
-                                                                    return (
-                                                                        <span key={val} className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-sm font-medium shadow-sm">
-                                                                            <span className="w-4 h-4 rounded-full border border-gray-300 flex-shrink-0" style={{ backgroundColor: hex || '#000' }} />
-                                                                            {name}
-                                                                            <button onClick={() => removeValueFromGroup('color', val)} className="text-gray-400 hover:text-red-500">
-                                                                                <i className="ri-close-line text-sm"></i>
-                                                                            </button>
-                                                                        </span>
-                                                                    );
-                                                                }
-                                                                return (
-                                                                    <span key={val} className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-sm font-medium shadow-sm">
-                                                                        {val}
-                                                                        <button onClick={() => removeValueFromGroup(def.key, val)} className="text-gray-400 hover:text-red-500">
-                                                                            <i className="ri-close-line text-sm"></i>
-                                                                        </button>
-                                                                    </span>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    )}
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {def.defaultValues.map((val) => {
+                                                            const selected = state.values.includes(val);
+                                                            return (
+                                                                <button
+                                                                    key={val}
+                                                                    type="button"
+                                                                    onClick={() => togglePresetValue(def.key, val)}
+                                                                    className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium border-2 transition-all ${
+                                                                        selected
+                                                                            ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
+                                                                            : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400'
+                                                                    }`}
+                                                                >
+                                                                    {selected && <i className="ri-check-line text-sm" />}
+                                                                    {val}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                        {/* Custom values not in defaults */}
+                                                        {state.values
+                                                            .filter((v) => !def.defaultValues.includes(v))
+                                                            .map((val) => (
+                                                                <button
+                                                                    key={val}
+                                                                    type="button"
+                                                                    onClick={() => removeValueFromGroup(def.key, val)}
+                                                                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium bg-gray-900 text-white border-2 border-gray-900"
+                                                                >
+                                                                    {val}
+                                                                    <i className="ri-close-line text-sm" />
+                                                                </button>
+                                                            ))}
+                                                    </div>
 
-                                                    {/* Add value input */}
-                                                    {isColor ? (
-                                                        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-                                                            <input
-                                                                type="color"
-                                                                value={colorPickerHex}
-                                                                onChange={e => setColorPickerHex(e.target.value)}
-                                                                className="w-10 h-10 rounded-lg border-2 border-gray-200 cursor-pointer p-0.5"
-                                                            />
-                                                            <input
-                                                                type="text"
-                                                                value={colorPickerName}
-                                                                onChange={e => setColorPickerName(e.target.value)}
-                                                                placeholder="Color name (e.g. Jet Black)"
-                                                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                                                onKeyDown={e => e.key === 'Enter' && addColorValue()}
-                                                            />
-                                                            <button
-                                                                onClick={addColorValue}
-                                                                className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 transition-colors"
-                                                            >
-                                                                Add
-                                                            </button>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-                                                            <input
-                                                                type="text"
-                                                                value={customOptionInput[def.key] || ''}
-                                                                onChange={e => setCustomOptionInput(prev => ({ ...prev, [def.key]: e.target.value }))}
-                                                                placeholder={`Add ${def.label.toLowerCase()} value...`}
-                                                                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                                                                onKeyDown={e => e.key === 'Enter' && addValueToGroup(def.key, customOptionInput[def.key] || '')}
-                                                            />
-                                                            <button
-                                                                onClick={() => addValueToGroup(def.key, customOptionInput[def.key] || '')}
-                                                                disabled={!(customOptionInput[def.key] || '').trim()}
-                                                                className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                                            >
-                                                                Add
-                                                            </button>
-                                                        </div>
-                                                    )}
+                                                    <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                                                        <input
+                                                            type="text"
+                                                            value={customOptionInput[def.key] || ''}
+                                                            onChange={(e) => setCustomOptionInput((prev) => ({ ...prev, [def.key]: e.target.value }))}
+                                                            placeholder={`Add custom ${def.label.toLowerCase()}…`}
+                                                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                                            onKeyDown={(e) => e.key === 'Enter' && addValueToGroup(def.key, customOptionInput[def.key] || '')}
+                                                        />
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => addValueToGroup(def.key, customOptionInput[def.key] || '')}
+                                                            disabled={!(customOptionInput[def.key] || '').trim()}
+                                                            className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                                        >
+                                                            Add
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -897,7 +1199,7 @@ export default function ProductForm({ initialData, isEditMode = false }: Product
                                 <div className="flex items-center justify-between mb-4">
                                     <div>
                                         <h4 className="font-bold text-gray-900">Custom Option Groups</h4>
-                                        <p className="text-sm text-gray-500">Add custom options for non-wig products (e.g. Size, Material, Scent)</p>
+                                        <p className="text-sm text-gray-500">For non-wig products — e.g. Size, Material, Scent, Heel height</p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2 mb-4">
@@ -914,7 +1216,7 @@ export default function ProductForm({ initialData, isEditMode = false }: Product
                                         disabled={!customGroupInput.trim()}
                                         className="px-4 py-2 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                                     >
-                                        <i className="ri-add-line mr-1"></i> Add
+                                        <i className="ri-add-line mr-1"></i> Add group
                                     </button>
                                 </div>
                                 {customGroups.map((g, idx) => (
@@ -1050,8 +1352,8 @@ export default function ProductForm({ initialData, isEditMode = false }: Product
                                 <div className="p-8 text-center text-gray-500 bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
                                     <i className="ri-list-settings-line text-4xl text-gray-300 mb-3 block"></i>
                                     <p className="font-semibold text-gray-700">No variant-generating options enabled</p>
-                                    <p className="text-sm mt-1">Toggle on option groups above and mark them as ⚡ Variant to generate price/stock combinations.</p>
-                                    <p className="text-xs mt-2 text-gray-400">Options set to &quot;Selection only&quot; will appear on the product page as selectors but won&apos;t create individual variants.</p>
+                                    <p className="text-sm mt-1">Enable options above and mark them as ⚡ Variant when each combination needs its own price or stock.</p>
+                                    <p className="text-xs mt-2 text-gray-400">Selection-only options still show on the product page for customers to choose.</p>
                                 </div>
                             )}
                         </div>
